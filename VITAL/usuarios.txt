@@ -1,1 +1,4 @@
 Nombre: Jesus Emmanuel Reyes Caballero | Sangre: A- | Correo: reyescab@gmail.com | Usr: don_chuy | PassXOR: (Ynrhji:
+Nombre: Edwin Perez Rodrigo | Sangre: B+ | Correo: edwin123@mgail.com | Usr: cucaracha | PassXOR: Rjed:K[~
+CATALOGO_REQ
+CARRITO_ADD | Usr: don_chuy | Prod: CATALOGO_REQ | Prc: 

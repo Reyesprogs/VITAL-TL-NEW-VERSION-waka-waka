@@ -1,85 +1,12 @@
 #include <ncurses.h>
 #include <string.h>
+#include "ui.h"
+#include "validaciones.h"
+#include "panel.h"
 #include "inter.h"
 #include "validaciones.h"
 
-// --- 1. CONFIGURACIÓN VISUAL ---
-void configurar_colores() {
-    start_color();
-    if (can_change_color()) {
-        init_color(10, 850, 850, 850); // Gris claro base
-        init_color(11, 250, 250, 250); // Gris oscuro texto
-        init_color(12, 100, 600, 900); // Azul
-        init_color(13, 350, 350, 350); // Gris oscuro para botones/errores
-        init_color(14, 800, 800, 800); // Gris claro para letras de botones
 
-        init_pair(1, 11, 10); // Texto normal oscuro sobre fondo claro
-        init_pair(2, 10, 12); // Resaltado azul
-        init_pair(3, 12, 10); // Títulos azules
-        init_pair(4, 14, 13); // Botones: Letra clara en fondo oscuro
-        init_pair(5, 14, 13); // Fondos de error (Gris oscuro)
-    } else {
-        init_pair(1, COLOR_BLACK, COLOR_WHITE);
-        init_pair(2, COLOR_WHITE, COLOR_CYAN);
-        init_pair(3, COLOR_CYAN, COLOR_WHITE);
-        init_pair(4, COLOR_WHITE, COLOR_BLACK);
-        init_pair(5, COLOR_RED, COLOR_WHITE);
-    }
-}
-
-void dibujar_tarjeta(int start_y, int start_x, int alto, int ancho) {
-    attron(COLOR_PAIR(1));
-    for(int i = 0; i < alto; i++) {
-        mvhline(start_y + i, start_x, ' ', ancho);
-    }
-    mvhline(start_y, start_x + 1, ACS_HLINE, ancho - 2);         
-    mvhline(start_y + alto - 1, start_x + 1, ACS_HLINE, ancho - 2); 
-    mvvline(start_y + 1, start_x, ACS_VLINE, alto - 2);         
-    mvvline(start_y + 1, start_x + ancho - 1, ACS_VLINE, alto - 2); 
-    mvaddch(start_y, start_x, ACS_ULCORNER);
-    mvaddch(start_y, start_x + ancho - 1, ACS_URCORNER);
-    mvaddch(start_y + alto - 1, start_x, ACS_LLCORNER);
-    mvaddch(start_y + alto - 1, start_x + ancho - 1, ACS_LRCORNER);
-    attroff(COLOR_PAIR(1));
-}
-
-// --- 2. PANTALLAS DE NOTIFICACIÓN Y ERRORES ---
-void mostrar_error_servidor() {
-    clear();
-    int start_y = (LINES - 10) / 2, start_x = (COLS - 50) / 2;
-    dibujar_tarjeta(start_y, start_x, 10, 50);
-    attron(COLOR_PAIR(5) | A_BOLD);
-    mvprintw(start_y + 3, start_x + 5, "Error: hay un ploblemita con el sevidor");
-    attron(COLOR_PAIR(4));
-    mvprintw(start_y + 6, start_x + 19, "   Salir   ");
-    attroff(COLOR_PAIR(4) | COLOR_PAIR(5) | A_BOLD);
-    refresh();
-    while (getch() != '\n') {}
-    endwin(); exit(1); 
-}
-
-void mostrar_notificacion(const char *mensaje, int es_exito) {
-    clear();
-    int alto = 10, ancho = 55;
-    int sy = (LINES - alto) / 2, sx = (COLS - ancho) / 2;
-    dibujar_tarjeta(sy, sx, alto, ancho);
-
-    if (es_exito) attron(COLOR_PAIR(2) | A_BOLD); 
-    else attron(COLOR_PAIR(5) | A_BOLD);
-
-    int len_msg = strlen(mensaje);
-    mvprintw(sy + 3, sx + (ancho - len_msg) / 2, "%s", mensaje);
-    
-    if (es_exito) attroff(COLOR_PAIR(2) | A_BOLD);
-    else attroff(COLOR_PAIR(5) | A_BOLD);
-
-    attron(COLOR_PAIR(1) | A_BOLD);
-    mvprintw(sy + 6, sx + 20, " [ Continuar ] ");
-    attroff(COLOR_PAIR(1) | A_BOLD);
-    
-    refresh();
-    while (getch() != '\n' && getch() != '\r') {} 
-}
 
 void mostrar_errores_formulario(char errores[7][100], int n_errores) {
     int alto = n_errores + 6, ancho = 60;
@@ -172,9 +99,11 @@ void pantalla_login(int semid, MemoriaCompartida *memoria) {
                 
                 if (up(semid, MUTEX) == -1) mostrar_error_servidor(); 
 
-                if (strcmp(respuesta_servidor, "LOGIN_EXITO") == 0) {
+				if (strcmp(respuesta_servidor, "LOGIN_EXITO") == 0) {
                     mostrar_notificacion("Acceso CORRECTO. Bienvenido a VITAL-TL.", 1);
-                    return; 
+                    // --- ¡AQUI LLAMAMOS AL PANEL MÁGICO! ---
+                    abrir_panel_principal(campos[0], semid, memoria); 
+                    return; // Cuando cierre sesión, volverá a la pantalla principal
                 } else {
                     mostrar_notificacion("ERROR: Usuario o contrasena incorrectos.", 0);
                 }

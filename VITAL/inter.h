@@ -30,16 +30,18 @@ union semun {
     struct seminfo *__buf;
 };
 
+
 // Funcion para bloquear (restar 1)
-int down(int semid, int sem_num) {
+static inline int down(int semid, int sem_num) {
     struct sembuf op_p = {sem_num, -1, 0};
     return semop(semid, &op_p, 1);
 }
 
 // Funcion para avanzar (sumar 1)
-int up(int semid, int sem_num) {
+static inline int up(int semid, int sem_num) {
     struct sembuf op_v = {sem_num, 1, 0};
     return semop(semid, &op_v, 1);
 }
+
 
 #endif
