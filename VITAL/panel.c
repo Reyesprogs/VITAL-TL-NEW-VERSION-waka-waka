@@ -2,6 +2,7 @@
 #include "ui.h"
 #include "inter.h"
 #include "catalogo.h"
+#include "carrito.h"
 
 void abrir_panel_principal(const char *usuario_actual, int semid, MemoriaCompartida *memoria) {
     int opcion = 0;
@@ -51,8 +52,7 @@ void abrir_panel_principal(const char *usuario_actual, int semid, MemoriaCompart
                 if (opcion == 0) {
                                     abrir_catalogo(usuario_actual, semid, memoria);
                 } else if (opcion == 1) {
-                    mostrar_notificacion("Abriendo Carrito...", 1);
-                    // abrir_carrito(semid, memoria);
+                    abrir_carrito(usuario_actual, semid, memoria);
                 } else if (opcion == 2) {
                     mostrar_notificacion("Abriendo Resultados y Graficas...", 1);
                     // abrir_resultados(semid, memoria);
