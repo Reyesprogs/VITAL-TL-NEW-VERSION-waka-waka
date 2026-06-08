@@ -1,0 +1,4 @@
+Biometria_Hematica|250
+Quimica_Sanguinea_6|400
+Prueba_Sifilis_VDRL|150
+Examen_General_Orina|100
