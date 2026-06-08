@@ -3,6 +3,8 @@
 #include "inter.h"
 #include "catalogo.h"
 #include "carrito.h"
+#include "resultados.h" 
+#include "perfil.h"
 
 void abrir_panel_principal(const char *usuario_actual, int semid, MemoriaCompartida *memoria) {
     int opcion = 0;
@@ -54,11 +56,9 @@ void abrir_panel_principal(const char *usuario_actual, int semid, MemoriaCompart
                 } else if (opcion == 1) {
                     abrir_carrito(usuario_actual, semid, memoria);
                 } else if (opcion == 2) {
-                    mostrar_notificacion("Abriendo Resultados y Graficas...", 1);
-                    // abrir_resultados(semid, memoria);
+	                abrir_resultados(usuario_actual, semid, memoria);
                 } else if (opcion == 3) {
-                    mostrar_notificacion("Abriendo Modificacion de Perfil...", 1);
-                    // abrir_perfil(semid, memoria);
+                    abrir_perfil(usuario_actual, semid, memoria);
                 } else if (opcion == 4) {
                     ejecutando_panel = 0; // Rompe el ciclo y regresa al menú de Login
                 }

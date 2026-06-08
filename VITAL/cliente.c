@@ -204,8 +204,8 @@ void pantalla_registro(int semid, MemoriaCompartida *memoria) {
 
                     if (down(semid, MUTEX) == -1) mostrar_error_servidor(); 
                     
-                    snprintf(memoria->mensaje, 512, "Nombre: %s %s %s | Sangre: %s | Correo: %s | Usr: %s | PassXOR: %s", 
-                             campos[2], campos[0], campos[1], campos[3], campos[4], campos[5], pass_encriptada);
+                    snprintf(memoria->mensaje, 512, "Apellido Paterno: %s | Apellido Materno: %s | Nombre: %s | Sangre: %s | Correo: %s | Usr: %s | PassXOR: %s", 
+                                      campos[0], campos[1], campos[2], campos[3], campos[4], campos[5], pass_encriptada);
                     
                     if (up(semid, CLIENTE_LISTO) == -1) mostrar_error_servidor();
                     if (down(semid, SERVIDOR_LISTO) == -1) mostrar_error_servidor(); 
