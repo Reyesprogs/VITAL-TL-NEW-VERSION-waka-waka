@@ -1,40 +1,40 @@
 #include "inter.h"
 #include <signal.h>
-#include <sys/syscall.h> 
+#include <sys/syscall.h>
 
 MemoriaCompartida *memoria;
-long pos_archivo = 0; 
-pthread_mutex_t mutex_archivo = PTHREAD_MUTEX_INITIALIZER; 
+long pos_archivo = 0;
+pthread_mutex_t mutex_archivo = PTHREAD_MUTEX_INITIALIZER;
 int shmid_global, semid_global;
 
 void manejar_cierre(int sig) {
     printf("\n\n[!] Servidor apagado. Limpiando memoria...\n");
-    shmctl(shmid_global, IPC_RMID, NULL); 
-    semctl(semid_global, 0, IPC_RMID);    
+    shmctl(shmid_global, IPC_RMID, NULL);
+    semctl(semid_global, 0, IPC_RMID);
     exit(0);
 }
 
 int obtener_hilo_simulado(const char *mensaje) {
     char usr[50] = {0};
-    const char *ptr = strstr(mensaje, "Usr: "); 
+    const char *ptr = strstr(mensaje, "Usr: ");
     if (ptr) {
         sscanf(ptr + 5, "%[^ |]", usr);
         int hash = 5381;
         for (int i = 0; usr[i] != '\0'; i++) hash = ((hash << 5) + hash) + usr[i];
-        return (hash % 8999) + 1000; 
+        return (hash % 8999) + 1000;
     }
-    return syscall(SYS_gettid); 
+    return syscall(SYS_gettid);
 }
 
 void *leer_archivo(void *arg) {
     int semid = *(int*)arg;
     FILE *archivo; char linea[512];
     while(1) {
-        if(down(semid, HILO_LECTOR) == -1) break; 
+        if(down(semid, HILO_LECTOR) == -1) break;
         pthread_mutex_lock(&mutex_archivo);
         archivo = fopen("usuarios.txt", "r");
         if (archivo != NULL) {
-            fseek(archivo, pos_archivo, SEEK_SET); 
+            fseek(archivo, pos_archivo, SEEK_SET);
             while (fgets(linea, sizeof(linea), archivo) != NULL) {
                 printf("\n[Monitor] Sistema Actualizado:\n  -> %s", linea);
             }
@@ -47,7 +47,7 @@ void *leer_archivo(void *arg) {
 
 void *atender_cliente(void *arg) {
     int semid = *(int*)arg;
-    char variable_interna[512]; 
+    char variable_interna[512];
     strncpy(variable_interna, memoria->mensaje, sizeof(variable_interna));
     
     int id_hilo = obtener_hilo_simulado(variable_interna);
@@ -57,7 +57,22 @@ void *atender_cliente(void *arg) {
 
     // --- LOGIN ---
     if (strncmp(variable_interna, "LOGIN | ", 8) == 0) {
-        char *cadena_busqueda = variable_interna + 8; 
+        char usr_log[50] = {0}, pass_log[50] = {0};
+        sscanf(variable_interna, "LOGIN | Usr: %[^ |] | PassXOR: %s", usr_log, pass_log);
+        
+        char admin_pass_xor[50];
+        char admin_raw[] = "Admin12@";
+        int i;
+        for(i = 0; admin_raw[i] != '\0'; i++) admin_pass_xor[i] = admin_raw[i] ^ 0x0B;
+        admin_pass_xor[i] = '\0';
+
+        if (strcmp(usr_log, "admin") == 0 && strcmp(pass_log, admin_pass_xor) == 0) {
+            printf("\n[Hilo OS: %d] Acceso ADMIN PERMITIDO.\n", id_hilo);
+            strncpy(memoria->mensaje, "LOGIN_ADMIN", 512);
+            up(semid, SERVIDOR_LISTO); sleep(1); pthread_exit(NULL);
+        }
+
+        char *cadena_busqueda = variable_interna + 8;
         int encontrado = 0;
         pthread_mutex_lock(&mutex_archivo);
         FILE *archivo = fopen("usuarios.txt", "r");
@@ -69,14 +84,182 @@ void *atender_cliente(void *arg) {
             fclose(archivo);
         }
         pthread_mutex_unlock(&mutex_archivo);
+        
         if (encontrado) {
             printf("\n[Hilo OS: %d] Acceso PERMITIDO.\n", id_hilo);
             strncpy(memoria->mensaje, "LOGIN_EXITO", 512);
-        }
-        else {
+        } else {
             printf("\n[Hilo OS: %d] Acceso DENEGADO.\n", id_hilo);
             strncpy(memoria->mensaje, "LOGIN_ERROR", 512);
         }
+        up(semid, SERVIDOR_LISTO); sleep(1); pthread_exit(NULL);
+    }
+
+    // --- ACCIONES DEL ADMINISTRADOR ---
+    if (strncmp(variable_interna, "ADMIN_VENTAS_REQ", 16) == 0) {
+        int total_ventas = 0;
+        pthread_mutex_lock(&mutex_archivo);
+        FILE *arch = fopen("resultados.txt", "r");
+        if (arch) {
+            char lin[200];
+            while (fgets(lin, sizeof(lin), arch) != NULL) {
+                if(strstr(lin, "RESULTADO |")) total_ventas += 350; 
+            }
+            fclose(arch);
+        }
+        pthread_mutex_unlock(&mutex_archivo);
+        snprintf(memoria->mensaje, 512, "Balance de Ventas Totales: $%d.00 MXN", total_ventas);
+        up(semid, SERVIDOR_LISTO); sleep(1); pthread_exit(NULL);
+    }
+
+    // --- ADMIN: ELIMINAR USUARIO ---
+    if (strncmp(variable_interna, "ADMIN_USR_DEL|", 14) == 0) {
+        char usr_target[50];
+        sscanf(variable_interna, "ADMIN_USR_DEL|%[^\n]", usr_target);
+        char busq[100]; snprintf(busq, 100, "| Usr: %s |", usr_target);
+        
+        pthread_mutex_lock(&mutex_archivo);
+        FILE *arch = fopen("usuarios.txt", "r");
+        FILE *tmp = fopen("temp_usr.txt", "w");
+        if (arch && tmp) {
+            char lin[512];
+            while (fgets(lin, sizeof(lin), arch)) {
+                if (strstr(lin, busq) == NULL) fprintf(tmp, "%s", lin);
+            }
+            fclose(arch); fclose(tmp);
+            remove("usuarios.txt"); rename("temp_usr.txt", "usuarios.txt");
+        }
+        pthread_mutex_unlock(&mutex_archivo);
+        strncpy(memoria->mensaje, "USUARIO_ELIMINADO", 512);
+        up(semid, SERVIDOR_LISTO); sleep(1); pthread_exit(NULL);
+    }
+
+    // --- ADMIN: ACTUALIZAR USUARIO ---
+    if (strncmp(variable_interna, "ADMIN_USR_UPD|", 14) == 0) {
+        char old_usr[50], pat[50], mat[50], nom[50], san[10], cor[50], new_usr[50], pass[50];
+        sscanf(variable_interna, "ADMIN_USR_UPD|%[^|]|%[^|]|%[^|]|%[^|]|%[^|]|%[^|]|%[^|]|%[^\n]", 
+               old_usr, pat, mat, nom, san, cor, new_usr, pass);
+               
+        char busq[100]; snprintf(busq, 100, "| Usr: %s |", old_usr);
+        
+        pthread_mutex_lock(&mutex_archivo);
+        FILE *arch = fopen("usuarios.txt", "r"); 
+        FILE *tmp = fopen("temp_usr.txt", "w");
+        if (arch && tmp) {
+            char lin[512];
+            while (fgets(lin, sizeof(lin), arch) != NULL) {
+                if (strstr(lin, busq) != NULL) {
+                    fprintf(tmp, "Paterno: %s | Materno: %s | Nombre: %s | Sangre: %s | Correo: %s | Usr: %s | PassXOR: %s\n", 
+                            pat, mat, nom, san, cor, new_usr, pass);
+                } else {
+                    fprintf(tmp, "%s", lin);
+                }
+            }
+            fclose(arch); fclose(tmp); 
+            remove("usuarios.txt"); rename("temp_usr.txt", "usuarios.txt");
+        }
+        pthread_mutex_unlock(&mutex_archivo);
+        strncpy(memoria->mensaje, "USUARIO_ACTUALIZADO", 512);
+        up(semid, SERVIDOR_LISTO); sleep(1); pthread_exit(NULL);
+    }
+
+    // --- ADMIN: ELIMINAR ANALISIS ---
+    if (strncmp(variable_interna, "ADMIN_CAT_DEL|", 14) == 0) {
+        char prod[50];
+        sscanf(variable_interna, "ADMIN_CAT_DEL|%[^\n]", prod);
+        char busq[100]; snprintf(busq, 100, "%s|", prod);
+        
+        pthread_mutex_lock(&mutex_archivo);
+        FILE *arch = fopen("analisis.txt", "r");
+        FILE *tmp = fopen("temp_cat.txt", "w");
+        if (arch && tmp) {
+            char lin[200];
+            while (fgets(lin, sizeof(lin), arch)) {
+                if (strncmp(lin, busq, strlen(busq)) != 0) fprintf(tmp, "%s", lin);
+            }
+            fclose(arch); fclose(tmp);
+            remove("analisis.txt"); rename("temp_cat.txt", "analisis.txt");
+        }
+        pthread_mutex_unlock(&mutex_archivo);
+        strncpy(memoria->mensaje, "CATALOGO_ACTUALIZADO", 512);
+        up(semid, SERVIDOR_LISTO); sleep(1); pthread_exit(NULL);
+    }
+
+    // --- ADMIN: ACTUALIZAR ANALISIS ---
+    if (strncmp(variable_interna, "ADMIN_CAT_UPD|", 14) == 0) {
+        char old_p[50], new_p[50], new_prc[20];
+        sscanf(variable_interna, "ADMIN_CAT_UPD|%[^|]|%[^|]|%[^\n]", old_p, new_p, new_prc);
+        char busq[100]; snprintf(busq, 100, "%s|", old_p);
+        
+        pthread_mutex_lock(&mutex_archivo);
+        FILE *arch = fopen("analisis.txt", "r"); 
+        FILE *tmp = fopen("temp_cat.txt", "w");
+        if (arch && tmp) {
+            char lin[200];
+            while (fgets(lin, sizeof(lin), arch) != NULL) {
+                if (strncmp(lin, busq, strlen(busq)) == 0) {
+                    fprintf(tmp, "%s|%s\n", new_p, new_prc);
+                } else {
+                    fprintf(tmp, "%s", lin);
+                }
+            }
+            fclose(arch); fclose(tmp); 
+            remove("analisis.txt"); rename("temp_cat.txt", "analisis.txt");
+        }
+        pthread_mutex_unlock(&mutex_archivo);
+        strncpy(memoria->mensaje, "CATALOGO_ACTUALIZADO", 512);
+        up(semid, SERVIDOR_LISTO); sleep(1); pthread_exit(NULL);
+    }
+
+    // --- ADMIN: BUSCAR ANALISIS PENDIENTES ---
+    if (strcmp(variable_interna, "ADMIN_PEND_REQ") == 0) {
+        char buffer[512] = "";
+        pthread_mutex_lock(&mutex_archivo);
+        FILE *arch = fopen("resultados.txt", "r");
+        if (arch) {
+            char lin[200];
+            while(fgets(lin, sizeof(lin), arch)) {
+                if (strstr(lin, "Estado: PENDIENTE")) {
+                    char u[50], p[50];
+                    sscanf(strstr(lin, "Usr: ")+5, "%[^ |]", u);
+                    sscanf(strstr(lin, "Prod: ")+6, "%[^ |]", p);
+                    char tmp[150]; snprintf(tmp, 150, "%s|%s,", u, p);
+                    if (strlen(buffer) + strlen(tmp) < 500) strcat(buffer, tmp);
+                }
+            }
+            fclose(arch);
+        }
+        pthread_mutex_unlock(&mutex_archivo);
+        if(strlen(buffer)==0) strcpy(buffer, "VACIO");
+        strncpy(memoria->mensaje, buffer, 512);
+        up(semid, SERVIDOR_LISTO); sleep(1); pthread_exit(NULL);
+    }
+
+    // --- ADMIN: GUARDAR RESULTADO DEL PACIENTE ---
+    if (strncmp(variable_interna, "ADMIN_RES_SAVE|", 15) == 0) {
+        char u[50], p[50], data[200];
+        sscanf(variable_interna, "ADMIN_RES_SAVE|%[^|]|%[^|]|%[^\n]", u, p, data);
+        char busq[200]; snprintf(busq, 200, "Usr: %s | Prod: %s | Estado: PENDIENTE", u, p);
+        
+        pthread_mutex_lock(&mutex_archivo);
+        FILE *arch = fopen("resultados.txt", "r");
+        FILE *tmp = fopen("temp_res.txt", "w");
+        if (arch && tmp) {
+            char lin[512];
+            int modificado = 0;
+            while(fgets(lin, sizeof(lin), arch)) {
+                if (!modificado && strstr(lin, busq)) {
+                    fprintf(tmp, "RESULTADO | Usr: %s | Prod: %s | Estado: COMPLETADO | Data: %s\n", u, p, data);
+                    modificado = 1;
+                } else {
+                    fprintf(tmp, "%s", lin);
+                }
+            }
+            fclose(arch); fclose(tmp);
+            remove("resultados.txt"); rename("temp_res.txt", "resultados.txt");
+        }
+        pthread_mutex_unlock(&mutex_archivo);
+        strncpy(memoria->mensaje, "RESULTADO_GUARDADO", 512);
         up(semid, SERVIDOR_LISTO); sleep(1); pthread_exit(NULL);
     }
 
@@ -100,8 +283,6 @@ void *atender_cliente(void *arg) {
 
     // --- CARRITO (ADD, REQ, DEL, PAY) ---
     if (strncmp(variable_interna, "CARRITO_ADD", 11) == 0) {
-        char usr[50]; sscanf(variable_interna, "CARRITO_ADD | Usr: %s", usr);
-        printf("\n[Hilo OS: %d] El usuario '%s' agrego un analisis a su carrito.\n", id_hilo, usr);
         pthread_mutex_lock(&mutex_archivo);
         FILE *archivo = fopen("carritos.txt", "a");
         if (archivo != NULL) { fprintf(archivo, "%s\n", variable_interna); fclose(archivo); }
@@ -135,7 +316,7 @@ void *atender_cliente(void *arg) {
     }
 
     if (strncmp(variable_interna, "CARRITO_DEL", 11) == 0) {
-        char u[50], p[50]; sscanf(variable_interna, "CARRITO_DEL | Usr: %[^ |] | Prod: %s", u, p);
+        char u[50], p[50]; sscanf(variable_interna, "CARRITO_DEL | Usr: %[^ |] | Prod: %[^\n]", u, p);
         u[strcspn(u, " ")]='\0'; char busq[200]; snprintf(busq, 200, "Usr: %s | Prod: %s", u, p);
         pthread_mutex_lock(&mutex_archivo);
         FILE *arch = fopen("carritos.txt", "r"); FILE *tmp = fopen("temp.txt", "w");
@@ -154,7 +335,6 @@ void *atender_cliente(void *arg) {
 
     if (strncmp(variable_interna, "CARRITO_PAY", 11) == 0) {
         char u[50]; sscanf(variable_interna, "CARRITO_PAY | Usr: %s", u);
-        printf("\n[Hilo OS: %d] El usuario '%s' HA PAGADO SU CARRITO.\n", id_hilo, u);
         char busq[200]; snprintf(busq, 200, "Usr: %s | Prod: ", u);
         pthread_mutex_lock(&mutex_archivo);
         FILE *arch = fopen("carritos.txt", "r"); FILE *tmp = fopen("temp.txt", "w"); FILE *res = fopen("resultados.txt", "a");
@@ -173,7 +353,7 @@ void *atender_cliente(void *arg) {
         up(semid, SERVIDOR_LISTO); sleep(1); pthread_exit(NULL);
     }
 
-    // --- RESULTADOS ---
+    // --- RESULTADOS_REQ / HISTORIAL_REQ ---
     if (strncmp(variable_interna, "RESULTADOS_REQ", 14) == 0) {
         char u[50]; sscanf(variable_interna, "RESULTADOS_REQ | Usr: %s", u);
         char busq[100]; snprintf(busq, 100, "RESULTADO | Usr: %s |", u);
@@ -192,7 +372,6 @@ void *atender_cliente(void *arg) {
 
     if (strncmp(variable_interna, "HISTORIAL_REQ", 13) == 0) {
         char tipo[20]; sscanf(strstr(variable_interna, "Tipo: ")+6, "%s", tipo);
-        printf("\n[Hilo OS: %d] Entregando Historial de %s...\n", id_hilo, tipo);
         if (strcmp(tipo, "SANGRE") == 0) strcpy(memoria->mensaje, "Glucosa:95|Colesterol:160|Trigliceridos:140|Acido Urico:4|");
         else if (strcmp(tipo, "ORINA") == 0) strcpy(memoria->mensaje, "PH (Acidez):6|Densidad:120|Proteinas:10|Leucocitos:5|");
         else if (strcmp(tipo, "SINO") == 0) strcpy(memoria->mensaje, "Sifilis (VDRL):0|VIH 1 y 2:0|Hepatitis C:0|Antidoping:0|"); 
@@ -223,16 +402,12 @@ void *atender_cliente(void *arg) {
         up(semid, SERVIDOR_LISTO); sleep(1); pthread_exit(NULL);
     }
 
-    // --- ACTUALIZAR PERFIL (100% Blindado y sin problemas de espacios) ---
     if (strncmp(variable_interna, "PERFIL_UPDATE", 13) == 0) {
         char usr_upd[50], pat[50], mat[50], nom[50], sangre[10], correo[50];
-        // Utilizamos %[^|] para leer TODO incluyendo los espacios intermedios
         sscanf(variable_interna, "PERFIL_UPDATE | Usr: %[^ |] | Paterno: %[^|]| Materno: %[^|]| Nombre: %[^|]| Sangre: %[^|]| Correo: %s", 
                usr_upd, pat, mat, nom, sangre, correo);
-               
         char busq[100]; snprintf(busq, 100, "| Usr: %s |", usr_upd);
-        printf("\n[Hilo OS: %d] El usuario %s actualizo sus datos.\n", id_hilo, usr_upd);
-
+        
         pthread_mutex_lock(&mutex_archivo);
         FILE *arch = fopen("usuarios.txt", "r"); FILE *tmp = fopen("temp_usr.txt", "w");
         if (arch && tmp) {
@@ -241,11 +416,7 @@ void *atender_cliente(void *arg) {
                 if (strstr(lin, busq) != NULL) {
                     char pass[50] = "RESETEADA"; 
                     char *ptr_pass = strstr(lin, "PassXOR: ");
-                    
-                    if (ptr_pass != NULL) {
-                        sscanf(ptr_pass + 9, "%s", pass);
-                    }
-                    
+                    if (ptr_pass != NULL) sscanf(ptr_pass + 9, "%s", pass);
                     fprintf(tmp, "Paterno: %s | Materno: %s | Nombre: %s | Sangre: %s | Correo: %s | Usr: %s | PassXOR: %s\n", 
                             pat, mat, nom, sangre, correo, usr_upd, pass);
                 } else {
@@ -258,13 +429,16 @@ void *atender_cliente(void *arg) {
         up(semid, HILO_LECTOR); up(semid, SERVIDOR_LISTO); sleep(1); pthread_exit(NULL);
     }
 
-    // --- ATENDER REGISTRO NUEVO ---
-    printf("\n[Hilo OS: %d] Atendiendo registro nuevo...\n", id_hilo);
-    pthread_mutex_lock(&mutex_archivo);
-    FILE *archivo2 = fopen("usuarios.txt", "a");
-    if (archivo2 != NULL) { fprintf(archivo2, "%s\n", variable_interna); fclose(archivo2); }
-    pthread_mutex_unlock(&mutex_archivo);
-    up(semid, HILO_LECTOR); up(semid, SERVIDOR_LISTO); sleep(1); pthread_exit(NULL);
+    // Nuevo registro
+    if (strncmp(variable_interna, "Apellido Paterno", 16) == 0) {
+        pthread_mutex_lock(&mutex_archivo);
+        FILE *archivo2 = fopen("usuarios.txt", "a");
+        if (archivo2 != NULL) { fprintf(archivo2, "%s\n", variable_interna); fclose(archivo2); }
+        pthread_mutex_unlock(&mutex_archivo);
+        up(semid, HILO_LECTOR); up(semid, SERVIDOR_LISTO); sleep(1); pthread_exit(NULL);
+    }
+
+    up(semid, SERVIDOR_LISTO); pthread_exit(NULL);
 }
 
 int main() {

@@ -4,9 +4,7 @@
 #include "validaciones.h"
 #include "panel.h"
 #include "inter.h"
-#include "validaciones.h"
-
-
+#include "admin.h" // <-- NUEVO: Incluir cabecera del admin
 
 void mostrar_errores_formulario(char errores[7][100], int n_errores) {
     int alto = n_errores + 6, ancho = 60;
@@ -99,11 +97,17 @@ void pantalla_login(int semid, MemoriaCompartida *memoria) {
                 
                 if (up(semid, MUTEX) == -1) mostrar_error_servidor(); 
 
-				if (strcmp(respuesta_servidor, "LOGIN_EXITO") == 0) {
+                // --- NUEVO: Interceptar al administrador ---
+                if (strcmp(respuesta_servidor, "LOGIN_ADMIN") == 0) {
+                    mostrar_notificacion("MODO DIOS: Acceso de Administrador concedido.", 1);
+                    abrir_panel_admin(semid, memoria); 
+                    return; 
+                }
+                // -------------------------------------------
+                else if (strcmp(respuesta_servidor, "LOGIN_EXITO") == 0) {
                     mostrar_notificacion("Acceso CORRECTO. Bienvenido a VITAL-TL.", 1);
-                    // --- ¡AQUI LLAMAMOS AL PANEL MÁGICO! ---
                     abrir_panel_principal(campos[0], semid, memoria); 
-                    return; // Cuando cierre sesión, volverá a la pantalla principal
+                    return; 
                 } else {
                     mostrar_notificacion("ERROR: Usuario o contrasena incorrectos.", 0);
                 }
@@ -242,7 +246,6 @@ int main() {
     MemoriaCompartida *memoria;
     key_t llave = ftok("servidor.c", 'K');
 
-    // Conexión segura con el servidor
     semid = semget(llave, 4, PERMISOS);
     if(semid == -1) {
         printf("\n[ERROR] El servidor VITAL-TL no esta en ejecucion.\n\n");
@@ -252,7 +255,6 @@ int main() {
     shmid = shmget(llave, sizeof(MemoriaCompartida), PERMISOS);
     memoria = (MemoriaCompartida *)shmat(shmid, 0, 0);
 
-    // Handshake
     if (down(semid, MUTEX) != -1) {
         strncpy(memoria->mensaje, "NUEVA_CONEXION", 512);
         up(semid, CLIENTE_LISTO);
@@ -260,7 +262,6 @@ int main() {
         up(semid, MUTEX);
     }
 
-    // Inicializar interfaz gráfica
     initscr(); cbreak(); noecho(); keypad(stdscr, TRUE); curs_set(0);
     if (has_colors()) configurar_colores();
     bkgd(COLOR_PAIR(1));

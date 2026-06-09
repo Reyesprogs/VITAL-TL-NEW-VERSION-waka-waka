@@ -1,1 +1,3 @@
-RESULTADO | Usr: don_chuy | Prod: Examen_General_Orina | Estado: PENDIENTE
+RESULTADO | Usr: don_chuy | Prod: Examen_General_Orina | Estado: COMPLETADO | Data: PH
+RESULTADO | Usr: don_chuy | Prod: Biometria_Hematica | Estado: COMPLETADO | Data: Glucosa::1231|Colesterol::12|Trigliseridos::1212|Acido
+RESULTADO | Usr: don_chuy | Prod: Prueba_Sifilis_VDRL | Estado: COMPLETADO | Data: Resultado::Positivo|
