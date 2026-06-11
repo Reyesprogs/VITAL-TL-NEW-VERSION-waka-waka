@@ -3,17 +3,15 @@
 #include "inter.h"
 #include "catalogo.h"
 #include "carrito.h"
-#include "resultados.h" 
 #include "perfil.h"
 
 void abrir_panel_principal(const char *usuario_actual, int semid, MemoriaCompartida *memoria) {
     int opcion = 0;
-// ... (el resto de tu codigo sigue igual)
     int ejecutando_panel = 1;
-    const char *opciones[5] = {
+    // Se eliminó "Mis Resultados"
+    const char *opciones[4] = {
         "   Catalogo de Analisis   ", 
         "    Carrito de Compras    ", 
-        "    Mis Resultados        ",
         "    Mi Perfil             ",
         "    Cerrar Sesion         "
     };
@@ -33,7 +31,7 @@ void abrir_panel_principal(const char *usuario_actual, int semid, MemoriaCompart
         mvhline(sy + 6, sx + 2, ACS_HLINE, ancho - 4);
         attroff(COLOR_PAIR(1));
 
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 4; i++) {
             if (i == opcion) {
                 attron(COLOR_PAIR(2) | A_BOLD);
                 mvprintw(sy + 8 + (i * 2), sx + 12, "%s", opciones[i]);
@@ -48,18 +46,16 @@ void abrir_panel_principal(const char *usuario_actual, int semid, MemoriaCompart
 
         int ch = getch();
         switch(ch) {
-            case KEY_UP: opcion = (opcion - 1 + 5) % 5; break;
-            case KEY_DOWN: opcion = (opcion + 1) % 5; break;
+            case KEY_UP: opcion = (opcion - 1 + 4) % 4; break;
+            case KEY_DOWN: opcion = (opcion + 1) % 4; break;
             case '\n': case '\r':
                 if (opcion == 0) {
-                                    abrir_catalogo(usuario_actual, semid, memoria);
+                    abrir_catalogo(usuario_actual, semid, memoria);
                 } else if (opcion == 1) {
                     abrir_carrito(usuario_actual, semid, memoria);
                 } else if (opcion == 2) {
-	                abrir_resultados(usuario_actual, semid, memoria);
-                } else if (opcion == 3) {
                     abrir_perfil(usuario_actual, semid, memoria);
-                } else if (opcion == 4) {
+                } else if (opcion == 3) {
                     ejecutando_panel = 0; // Rompe el ciclo y regresa al menú de Login
                 }
                 break;

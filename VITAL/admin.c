@@ -1,3 +1,4 @@
+#include "inter.h"
 #include "admin.h"
 #include "ui.h"
 #include "validaciones.h"
@@ -7,6 +8,7 @@
 #include <stdlib.h>
 
 extern void mostrar_errores_formulario(char errores[7][100], int n_errores);
+extern void mostrar_error_servidor(); // Aseguramos que cargue tu pantalla de error
 
 void aplicar_xor(const char *origen, char *destino) {
     int i;
@@ -62,11 +64,14 @@ void gestionar_usuarios(int semid, MemoriaCompartida *memoria) {
             }
         }
 
-        if (down(semid, MUTEX) == -1) return;
+        // --- PROTECCION DE CONEXION ---
+        if (down(semid, MUTEX) == -1) mostrar_error_servidor();
         snprintf(memoria->mensaje, 512, "PERFIL_REQ | Usr: %s", target_usr);
-        up(semid, CLIENTE_LISTO); down(semid, SERVIDOR_LISTO);
+        if (up(semid, CLIENTE_LISTO) == -1) mostrar_error_servidor(); 
+        if (down(semid, SERVIDOR_LISTO) == -1) mostrar_error_servidor();
+        
         char respuesta[512]; strncpy(respuesta, memoria->mensaje, 512);
-        up(semid, MUTEX);
+        if (up(semid, MUTEX) == -1) mostrar_error_servidor();
 
         if (strcmp(respuesta, "VACIO") == 0) {
             mostrar_notificacion("ERROR: Usuario inexistente.", 0); buscar_nuevo = 1; continue;
@@ -121,11 +126,14 @@ void gestionar_usuarios(int semid, MemoriaCompartida *memoria) {
             else if (ch == '\n' || ch == '\r') {
                 if (foco_edit == 9) { en_edicion = 0; buscar_nuevo = 1; } 
                 else if (foco_edit == 8) { 
-                    if (down(semid, MUTEX) != -1) {
-                        snprintf(memoria->mensaje, 512, "ADMIN_USR_DEL|%s", target_usr);
-                        up(semid, CLIENTE_LISTO); down(semid, SERVIDOR_LISTO); up(semid, MUTEX);
-                        mostrar_notificacion("Usuario eliminado.", 1);
-                    }
+                    // --- PROTECCION DE CONEXION ---
+                    if (down(semid, MUTEX) == -1) mostrar_error_servidor();
+                    snprintf(memoria->mensaje, 512, "ADMIN_USR_DEL|%s", target_usr);
+                    if (up(semid, CLIENTE_LISTO) == -1) mostrar_error_servidor();
+                    if (down(semid, SERVIDOR_LISTO) == -1) mostrar_error_servidor(); 
+                    if (up(semid, MUTEX) == -1) mostrar_error_servidor();
+                    
+                    mostrar_notificacion("Usuario eliminado.", 1);
                     en_edicion = 0; buscar_nuevo = 1;
                 }
                 else if (foco_edit == 7) { 
@@ -141,12 +149,15 @@ void gestionar_usuarios(int semid, MemoriaCompartida *memoria) {
                     if (n_err > 0) mostrar_errores_formulario(errores, n_err);
                     else {
                         char nueva_pass[50]; aplicar_xor(campos[6], nueva_pass);
-                        if (down(semid, MUTEX) != -1) {
-                            snprintf(memoria->mensaje, 512, "ADMIN_USR_UPD|%s|%s|%s|%s|%s|%s|%s|%s", 
-                                     target_usr, campos[0], campos[1], campos[2], campos[3], campos[4], campos[5], nueva_pass);
-                            up(semid, CLIENTE_LISTO); down(semid, SERVIDOR_LISTO); up(semid, MUTEX);
-                            mostrar_notificacion("Datos guardados con exito.", 1);
-                        }
+                        // --- PROTECCION DE CONEXION ---
+                        if (down(semid, MUTEX) == -1) mostrar_error_servidor();
+                        snprintf(memoria->mensaje, 512, "ADMIN_USR_UPD|%.45s|%.45s|%.45s|%.45s|%.45s|%.45s|%.45s|%.45s", 
+                                 target_usr, campos[0], campos[1], campos[2], campos[3], campos[4], campos[5], nueva_pass);
+                        if (up(semid, CLIENTE_LISTO) == -1) mostrar_error_servidor(); 
+                        if (down(semid, SERVIDOR_LISTO) == -1) mostrar_error_servidor(); 
+                        if (up(semid, MUTEX) == -1) mostrar_error_servidor();
+                        
+                        mostrar_notificacion("Datos guardados con exito.", 1);
                         en_edicion = 0; buscar_nuevo = 1; 
                     }
                 } else { foco_edit = (foco_edit + 1) % 10; }
@@ -164,331 +175,216 @@ void gestionar_usuarios(int semid, MemoriaCompartida *memoria) {
 // --- MODULO: GESTIONAR ANALISIS (ESTILO BANDEJA/LISTA) ---
 void gestionar_analisis(int semid, MemoriaCompartida *memoria) {
     int recargar = 1;
-    char nombres[20][50] = {0}; 
-    char precios[20][20] = {0}; 
-    int total = 0;
-    int foco_lista = 0;
+    char categorias[20][50] = {0}, subcats[20][50] = {0};
+    char nombres[20][50] = {0}, precios[20][20] = {0}, componentes[20][150] = {0}; 
+    int total = 0, foco_lista = 0;
 
     while(1) {
         if (recargar) {
-            if (down(semid, MUTEX) == -1) return;
+            // --- PROTECCION DE CONEXION ---
+            if (down(semid, MUTEX) == -1) mostrar_error_servidor();
             strncpy(memoria->mensaje, "CATALOGO_REQ", 512);
-            up(semid, CLIENTE_LISTO); down(semid, SERVIDOR_LISTO);
+            if (up(semid, CLIENTE_LISTO) == -1) mostrar_error_servidor(); 
+            if (down(semid, SERVIDOR_LISTO) == -1) mostrar_error_servidor();
+            
             char resp[512]; strncpy(resp, memoria->mensaje, 512);
-            up(semid, MUTEX);
+            if (up(semid, MUTEX) == -1) mostrar_error_servidor();
 
-            total = 0; char *token = strtok(resp, ",");
+            total = 0; char *token = strtok(resp, ";");
             while(token && total < 20) {
-                if(strlen(token) > 2) {
-                    sscanf(token, "%[^|]|%s", nombres[total], precios[total]);
+                if(strlen(token) > 5) {
+                    sscanf(token, "%[^|]|%[^|]|%[^|]|%[^|]|%s", 
+                           categorias[total], subcats[total], nombres[total], precios[total], componentes[total]);
                     total++;
                 }
-                token = strtok(NULL, ",");
+                token = strtok(NULL, ";");
             }
             recargar = 0;
-            if (total == 0) { mostrar_notificacion("Catalogo vacio.", 0); return; }
+            if (foco_lista > total + 1) foco_lista = 0; 
         }
 
         clear();
-        int alto = total + 10, ancho = 60;
+        int alto = total + 12, ancho = 100; 
         int sy = (LINES - alto) / 2, sx = (COLS - ancho) / 2;
         dibujar_tarjeta(sy, sx, alto, ancho);
 
-        attron(COLOR_PAIR(3) | A_BOLD); mvprintw(sy + 2, sx + 16, "=== CATALOGO CLINICO ==="); attroff(COLOR_PAIR(3) | A_BOLD);
+        attron(COLOR_PAIR(3) | A_BOLD); mvprintw(sy + 2, sx + 36, "=== CATALOGO CLINICO ==="); attroff(COLOR_PAIR(3) | A_BOLD);
         
         attron(COLOR_PAIR(1));
-        mvprintw(sy + 4, sx + 4, "Selecciona un analisis para EDITAR o ELIMINAR:");
+        mvprintw(sy + 4, sx + 4, "Selecciona un analisis para EDITAR o presiona Crear Nuevo:");
         mvhline(sy + 5, sx + 2, ACS_HLINE, ancho - 4);
         attroff(COLOR_PAIR(1));
 
         for(int i=0; i<total; i++) {
-            if (foco_lista == i) {
-                attron(COLOR_PAIR(2) | A_BOLD);
-                mvprintw(sy + 6 + i, sx + 6, " > %-30s $%s ", nombres[i], precios[i]);
-                attroff(COLOR_PAIR(2) | A_BOLD);
-            } else {
-                attron(COLOR_PAIR(1));
-                mvprintw(sy + 6 + i, sx + 6, "   %-30s $%s ", nombres[i], precios[i]);
-                attroff(COLOR_PAIR(1));
-            }
-        }
-
-        if (foco_lista == total) attron(COLOR_PAIR(2) | A_BOLD); else attron(COLOR_PAIR(1));
-        mvprintw(sy + 7 + total, sx + 24, " [ Regresar ] ");
-        attroff(COLOR_PAIR(2) | COLOR_PAIR(1) | A_BOLD);
-        refresh();
-
-        int ch = getch();
-        if (ch == KEY_UP) foco_lista = (foco_lista - 1 + total + 1) % (total + 1);
-        else if (ch == KEY_DOWN) foco_lista = (foco_lista + 1) % (total + 1);
-        else if (ch == '\n' || ch == '\r') {
-            if (foco_lista == total) return; 
-            else {
-                char old_nom[50], old_prc[20];
-                strcpy(old_nom, nombres[foco_lista]); strcpy(old_prc, precios[foco_lista]);
-                
-                int foco_edit = 0, en_edicion = 1;
-                char campos[2][50]; strcpy(campos[0], old_nom); strcpy(campos[1], old_prc);
-                const char *titulos[] = {"Nombre:", "Precio:"};
-
-                while(en_edicion) {
-                    clear();
-                    int e_alto = 20, e_ancho = 55;
-                    int ey = (LINES - e_alto) / 2, ex = (COLS - e_ancho) / 2;
-                    dibujar_tarjeta(ey, ex, e_alto, e_ancho);
-
-                    attron(COLOR_PAIR(3) | A_BOLD); mvprintw(ey + 1, ex + 12, "=== EDITAR ANALISIS ==="); attroff(COLOR_PAIR(3) | A_BOLD);
-
-                    for (int i = 0; i < 2; i++) {
-                        attron(COLOR_PAIR(1)); mvprintw(ey + 4 + (i * 2), ex + 5, "%-10s", titulos[i]);
-                        if (foco_edit == i) attron(COLOR_PAIR(2)); else attron(COLOR_PAIR(4)); 
-                        mvprintw(ey + 4 + (i * 2), ex + 15, "                              "); 
-                        mvprintw(ey + 4 + (i * 2), ex + 16, "%s", campos[i]);
-                        if (foco_edit == i && strlen(campos[i]) < 28) { attron(A_BLINK); mvprintw(ey + 4 + (i * 2), ex + 16 + strlen(campos[i]), "_"); attroff(A_BLINK); }
-                        attroff(COLOR_PAIR(2) | COLOR_PAIR(4));
-                    }
-
-                    if (foco_edit == 2) attron(COLOR_PAIR(2) | A_BOLD); else attron(COLOR_PAIR(1));
-                    mvprintw(ey + 11, ex + 18, " [ Guardar Cambios ] "); attroff(COLOR_PAIR(2) | COLOR_PAIR(1) | A_BOLD);
-
-                    if (foco_edit == 3) attron(COLOR_PAIR(5) | A_BOLD); else attron(COLOR_PAIR(1)); 
-                    mvprintw(ey + 13, ex + 20, " [ Eliminar ] "); attroff(COLOR_PAIR(5) | COLOR_PAIR(1) | A_BOLD);
-
-                    if (foco_edit == 4) attron(COLOR_PAIR(2) | A_BOLD); else attron(COLOR_PAIR(1));
-                    mvprintw(ey + 15, ex + 20, " [ Regresar ] "); attroff(COLOR_PAIR(2) | COLOR_PAIR(1) | A_BOLD);
-                    refresh();
-
-                    int c_e = getch();
-                    if (c_e == KEY_UP) foco_edit = (foco_edit - 1 + 5) % 5;
-                    else if (c_e == KEY_DOWN) foco_edit = (foco_edit + 1) % 5;
-                    else if (c_e == '\n' || c_e == '\r') {
-                        if (foco_edit == 4) { en_edicion = 0; }
-                        else if (foco_edit == 3) { 
-                            if (down(semid, MUTEX) != -1) {
-                                snprintf(memoria->mensaje, 512, "ADMIN_CAT_DEL|%s", old_nom);
-                                up(semid, CLIENTE_LISTO); down(semid, SERVIDOR_LISTO); up(semid, MUTEX);
-                                mostrar_notificacion("Analisis eliminado.", 1);
-                            }
-                            en_edicion = 0; recargar = 1; foco_lista = 0;
-                        }
-                        else if (foco_edit == 2) { 
-                            if (strlen(campos[0]) == 0 || strlen(campos[1]) == 0) mostrar_notificacion("Campos vacios.", 0);
-                            else {
-                                if (down(semid, MUTEX) != -1) {
-                                    snprintf(memoria->mensaje, 512, "ADMIN_CAT_UPD|%s|%s|%s", old_nom, campos[0], campos[1]);
-                                    up(semid, CLIENTE_LISTO); down(semid, SERVIDOR_LISTO); up(semid, MUTEX);
-                                    mostrar_notificacion("Cambios guardados.", 1);
-                                }
-                                en_edicion = 0; recargar = 1;
-                            }
-                        } else { foco_edit = (foco_edit + 1) % 5; }
-                    }
-                    else if (c_e == KEY_BACKSPACE || c_e == 127 || c_e == '\b') {
-                        if (foco_edit < 2) { int l = strlen(campos[foco_edit]); if(l>0) campos[foco_edit][l-1]='\0'; }
-                    }
-                    else if (c_e >= 32 && c_e <= 126) {
-                        if (foco_edit < 2) { int l = strlen(campos[foco_edit]); if(l<28) { campos[foco_edit][l]=c_e; campos[foco_edit][l+1]='\0'; } }
-                    }
-                }
-            }
-        }
-    }
-}
-
-
-// --- DIBUJAR GRAFICA DE BARRAS (VERTICAL TIPO ALSAMIXER) ---
-void mostrar_grafica_admin(const char *titulo, char nombres[4][20], char valores[4][15], int num_campos) {
-    clear();
-    int alto = 20, ancho = 65;
-    int sy = (LINES - alto) / 2, sx = (COLS - ancho) / 2;
-    dibujar_tarjeta(sy, sx, alto, ancho);
-    
-    attron(COLOR_PAIR(3) | A_BOLD); mvprintw(sy+2, sx+16, "=== GRAFICA DE RESULTADOS ==="); attroff(COLOR_PAIR(3)|A_BOLD);
-    attron(COLOR_PAIR(1) | A_BOLD); mvprintw(sy+4, sx+5, "%s", titulo); attroff(COLOR_PAIR(1) | A_BOLD);
-    mvhline(sy+5, sx+4, ACS_HLINE, ancho-8);
-    
-    int max_altura = 8;
-    int base_y = sy + 14; 
-    
-    for(int i=0; i<num_campos; i++) {
-        int val = atoi(valores[i]);
-        int barras = (val * max_altura) / 200; // Escala base a 200 puntos
-        if(barras > max_altura) barras = max_altura;
-        if(barras <= 0 && val > 0) barras = 1;
-        
-        int pos_x = sx + 8 + (i * 12); // Separación horizontal
-        
-        attron(COLOR_PAIR(2) | A_BOLD);
-        mvprintw(base_y - barras - 1, pos_x, "%3d", val);
-        attroff(COLOR_PAIR(2) | A_BOLD);
-
-        attron(COLOR_PAIR(2) | A_REVERSE);
-        for(int b=0; b<barras; b++) {
-            mvprintw(base_y - b, pos_x, "   "); 
-        }
-        attroff(COLOR_PAIR(2) | A_REVERSE);
-
-        attron(COLOR_PAIR(1));
-        char short_lbl[6];
-        strncpy(short_lbl, nombres[i], 5); short_lbl[5] = '\0';
-        mvprintw(base_y + 1, pos_x - 1, "%5s", short_lbl);
-        attroff(COLOR_PAIR(1));
-    }
-    
-    attron(COLOR_PAIR(1)|A_BOLD); mvprintw(sy+17, sx+25, " [ Continuar ] "); attroff(COLOR_PAIR(1)|A_BOLD);
-    refresh();
-    while(getch() != '\n' && getch() != '\r');
-}
-
-// --- MODULO: INGRESAR RESULTADOS A PACIENTES ---
-void agregar_resultados(int semid, MemoriaCompartida *memoria) {
-    int recargar = 1;
-    char usuarios[20][50] = {0}; char productos[20][50] = {0}; int total = 0;
-    int foco_lista = 0;
-
-    while(1) {
-        if (recargar) {
-            if (down(semid, MUTEX) == -1) return;
-            strncpy(memoria->mensaje, "ADMIN_PEND_REQ", 512);
-            up(semid, CLIENTE_LISTO); down(semid, SERVIDOR_LISTO);
-            char resp[512]; strncpy(resp, memoria->mensaje, 512);
-            up(semid, MUTEX);
-
-            total = 0; char *token = strtok(resp, ",");
-            while(token && total < 20) {
-                if(strlen(token) > 2) {
-                    sscanf(token, "%[^|]|%s", usuarios[total], productos[total]);
-                    total++;
-                }
-                token = strtok(NULL, ",");
-            }
-            recargar = 0;
-            if (total == 0) { mostrar_notificacion("No hay analisis pendientes.", 0); return; }
-        }
-
-        clear();
-        int alto = total + 12, ancho = 65;
-        int sy = (LINES - alto) / 2, sx = (COLS - ancho) / 2;
-        dibujar_tarjeta(sy, sx, alto, ancho);
-
-        attron(COLOR_PAIR(3) | A_BOLD); mvprintw(sy + 2, sx + 20, "=== BANDEJA DE PENDIENTES ==="); attroff(COLOR_PAIR(3) | A_BOLD);
-        attron(COLOR_PAIR(1)); mvprintw(sy + 4, sx + 4, "Selecciona un paciente para ingresar resultados:");
-        mvhline(sy + 5, sx + 2, ACS_HLINE, ancho - 4); attroff(COLOR_PAIR(1));
-
-        for(int i=0; i<total; i++) {
             if (foco_lista == i) attron(COLOR_PAIR(2) | A_BOLD); else attron(COLOR_PAIR(1));
-            mvprintw(sy + 6 + i, sx + 6, "%s | %-35s ", usuarios[i], productos[i]);
+            mvprintw(sy + 6 + i, sx + 4, "%s [%s - %s] %-25s $%s ", 
+                     (foco_lista == i) ? " >" : "  ", categorias[i], subcats[i], nombres[i], precios[i]);
             if (foco_lista == i) attroff(COLOR_PAIR(2) | A_BOLD); else attroff(COLOR_PAIR(1));
         }
 
         if (foco_lista == total) attron(COLOR_PAIR(2) | A_BOLD); else attron(COLOR_PAIR(1));
-        mvprintw(sy + 8 + total, sx + 25, " [ Regresar ] "); attroff(COLOR_PAIR(2) | COLOR_PAIR(1) | A_BOLD);
+        mvprintw(sy + 8 + total, sx + 25, " [ + Crear Nuevo ] ");
+        attroff(COLOR_PAIR(2) | COLOR_PAIR(1) | A_BOLD);
+
+        if (foco_lista == total + 1) attron(COLOR_PAIR(2) | A_BOLD); else attron(COLOR_PAIR(1));
+        mvprintw(sy + 8 + total, sx + 55, " [ Regresar ] ");
+        attroff(COLOR_PAIR(2) | COLOR_PAIR(1) | A_BOLD);
         refresh();
 
         int ch = getch();
-        if (ch == KEY_UP) foco_lista = (foco_lista - 1 + total + 1) % (total + 1);
-        else if (ch == KEY_DOWN) foco_lista = (foco_lista + 1) % (total + 1);
+        if (ch == KEY_UP) foco_lista = (foco_lista - 1 + total + 2) % (total + 2);
+        else if (ch == KEY_DOWN) foco_lista = (foco_lista + 1) % (total + 2);
         else if (ch == '\n' || ch == '\r') {
-            if (foco_lista == total) return; 
-            else {
-                int es_sino = 0;
-                int num_campos = 4;
-                char titulos[4][20];
-                char campos_res[4][15] = {"0", "0", "0", "0"}; 
-                char target_prod[50]; strcpy(target_prod, productos[foco_lista]);
-                
-                char tmp[50]; for(int i=0; target_prod[i]; i++) tmp[i] = tolower(target_prod[i]);
-                
-                if (strstr(tmp, "sifilis") || strstr(tmp, "vih") || strstr(tmp, "vdrl")) {
-                    es_sino = 1; num_campos = 1;
-                    strcpy(titulos[0], "Resultado:"); 
-                } else if (strstr(tmp, "orina")) {
-                    strcpy(titulos[0], "PH (Acidez):"); strcpy(titulos[1], "Densidad:");
-                    strcpy(titulos[2], "Proteinas:"); strcpy(titulos[3], "Leucocitos:");
-                } else { 
-                    strcpy(titulos[0], "Glucosa:"); strcpy(titulos[1], "Colesterol:");
-                    strcpy(titulos[2], "Trigliseridos:"); strcpy(titulos[3], "Acido Urico:");
-                }
+            if (foco_lista == total + 1) return; 
+            else if (foco_lista == total) {
+                int c_foco = 0, c_en_edicion = 1;
+                char c_campos[5][100] = {"Sangre", "Simple", "", "", "Ninguno"}; 
+                const char *c_titulos[] = {"Categoria:", "Tipo (Sub):", "Nombre:", "Precio:", "Componentes:"};
 
-                int foco_form = 0, editando = 1;
-                int val_sino = 0; // Para el boton toggle (0=Negativo, 1=Positivo)
-
-                while(editando) {
+                while(c_en_edicion) {
                     clear();
-                    int h = (num_campos * 2) + 12, w = 55;
-                    int dy = (LINES - h) / 2, dx = (COLS - w) / 2;
-                    dibujar_tarjeta(dy, dx, h, w);
-                    
-                    attron(COLOR_PAIR(3)|A_BOLD); mvprintw(dy+2, dx+16, "=== INGRESAR DATOS ==="); attroff(COLOR_PAIR(3)|A_BOLD);
-                    attron(COLOR_PAIR(1)|A_BOLD); mvprintw(dy+4, dx+5, "Paciente: %s", usuarios[foco_lista]); attroff(COLOR_PAIR(1)|A_BOLD);
-                    
-                    for(int i=0; i<num_campos; i++) {
-                        attron(COLOR_PAIR(1)); mvprintw(dy+7+(i*2), dx+5, "%-15s", titulos[i]); attroff(COLOR_PAIR(1));
+                    int e_alto = 24, e_ancho = 100;
+                    int ey = (LINES - e_alto) / 2, ex = (COLS - e_ancho) / 2;
+                    dibujar_tarjeta(ey, ex, e_alto, e_ancho);
+
+                    attron(COLOR_PAIR(3) | A_BOLD); mvprintw(ey + 1, ex + 38, "=== NUEVO ANALISIS ==="); attroff(COLOR_PAIR(3) | A_BOLD);
+                    attron(COLOR_PAIR(5) | A_BOLD); mvprintw(ey + 3, ex + 4, "(Usa flechas DER/IZQ para Categoria y Tipo)"); attroff(COLOR_PAIR(5) | A_BOLD);
+
+                    if(strcmp(c_campos[0], "Pruebas_Rapidas") == 0) { strcpy(c_campos[1], "Simple"); strcpy(c_campos[4], "Ninguno"); }
+
+                    for (int i = 0; i < 5; i++) {
+                        attron(COLOR_PAIR(1)); mvprintw(ey + 6 + (i * 2), ex + 4, "%-13s", c_titulos[i]);
+                        if (c_foco == i) attron(COLOR_PAIR(2)); else attron(COLOR_PAIR(4)); 
                         
-                        if (es_sino) {
-                            if(foco_form == i) attron(COLOR_PAIR(2)|A_REVERSE); else attron(COLOR_PAIR(4));
-                            mvprintw(dy+7+(i*2), dx+21, "               ");
-                            mvprintw(dy+7+(i*2), dx+23, "< %s >", val_sino == 0 ? "NEGATIVO" : "POSITIVO");
-                            attroff(COLOR_PAIR(2)|A_REVERSE|COLOR_PAIR(4));
+                        mvprintw(ey + 6 + (i * 2), ex + 18, "                                                                             "); 
+                        
+                        if ((i == 1 || i == 4) && strcmp(c_campos[0], "Pruebas_Rapidas") == 0) {
+                            attron(COLOR_PAIR(1) | A_DIM); mvprintw(ey + 6 + (i * 2), ex + 19, "%s", c_campos[i]); attroff(COLOR_PAIR(1) | A_DIM);
                         } else {
-                            if(foco_form == i) attron(COLOR_PAIR(2)); else attron(COLOR_PAIR(4));
-                            mvprintw(dy+7+(i*2), dx+21, "               ");
-                            mvprintw(dy+7+(i*2), dx+22, "%s", campos_res[i]);
-                            if(foco_form == i && strlen(campos_res[i]) < 12) { attron(A_BLINK); mvprintw(dy+7+(i*2), dx+22+strlen(campos_res[i]), "_"); attroff(A_BLINK); }
-                            attroff(COLOR_PAIR(2)|COLOR_PAIR(4));
+                            if (i == 0 || i == 1) mvprintw(ey + 6 + (i * 2), ex + 19, "< %s >", c_campos[i]);
+                            else mvprintw(ey + 6 + (i * 2), ex + 19, "%.75s", c_campos[i]);
+                            if (c_foco == i && i > 1 && strlen(c_campos[i]) < 75) { attron(A_BLINK); mvprintw(ey + 6 + (i * 2), ex + 19 + strlen(c_campos[i]), "_"); attroff(A_BLINK); }
                         }
+                        attroff(COLOR_PAIR(2) | COLOR_PAIR(4));
                     }
 
-                    if(foco_form == num_campos) attron(COLOR_PAIR(2)|A_BOLD); else attron(COLOR_PAIR(1));
-                    mvprintw(dy+h-6, dx+18, " [ Guardar Datos ] "); attroff(COLOR_PAIR(2)|A_BOLD|COLOR_PAIR(1));
+                    if (c_foco == 5) attron(COLOR_PAIR(2) | A_BOLD); else attron(COLOR_PAIR(1));
+                    mvprintw(ey + 18, ex + 30, " [ Guardar ] "); attroff(COLOR_PAIR(2) | COLOR_PAIR(1) | A_BOLD);
 
-                    if(foco_form == num_campos+1) attron(COLOR_PAIR(5)|A_BOLD); else attron(COLOR_PAIR(1));
-                    mvprintw(dy+h-4, dx+20, " [ Cancelar ] "); attroff(COLOR_PAIR(5)|A_BOLD|COLOR_PAIR(1));
+                    if (c_foco == 6) attron(COLOR_PAIR(5) | A_BOLD); else attron(COLOR_PAIR(1)); 
+                    mvprintw(ey + 18, ex + 55, " [ Cancelar ] "); attroff(COLOR_PAIR(5) | COLOR_PAIR(1) | A_BOLD);
+
+                    refresh();
+                    int c_e = getch();
+                    if (c_e == KEY_UP) c_foco = (c_foco - 1 + 7) % 7;
+                    else if (c_e == KEY_DOWN) c_foco = (c_foco + 1) % 7;
+                    else if (c_e == KEY_LEFT || c_e == KEY_RIGHT) {
+                        if (c_foco == 0) {
+                            if(strcmp(c_campos[0], "Sangre") == 0) strcpy(c_campos[0], "Orina");
+                            else if(strcmp(c_campos[0], "Orina") == 0) strcpy(c_campos[0], "Pruebas_Rapidas");
+                            else strcpy(c_campos[0], "Sangre");
+                        } else if (c_foco == 1 && strcmp(c_campos[0], "Pruebas_Rapidas") != 0) {
+                            if(strcmp(c_campos[1], "Simple") == 0) strcpy(c_campos[1], "Paquete");
+                            else strcpy(c_campos[1], "Simple");
+                        }
+                    }
+                    else if (c_e == '\n' || c_e == '\r') {
+                        if (c_foco == 6) { c_en_edicion = 0; }
+                        else if (c_foco == 5) { 
+                            if(strlen(c_campos[2]) == 0 || strlen(c_campos[3]) == 0) {
+                                mostrar_notificacion("Nombre y precio no pueden estar vacios", 0);
+                            } else {
+                                // --- PROTECCION DE CONEXION ---
+                                if (down(semid, MUTEX) == -1) mostrar_error_servidor();
+                                snprintf(memoria->mensaje, 512, "ADMIN_CAT_ADD|%.45s|%.45s|%.45s|%.45s|%.100s", 
+                                         c_campos[0], c_campos[1], c_campos[2], c_campos[3], c_campos[4]);
+                                if (up(semid, CLIENTE_LISTO) == -1) mostrar_error_servidor(); 
+                                if (down(semid, SERVIDOR_LISTO) == -1) mostrar_error_servidor(); 
+                                if (up(semid, MUTEX) == -1) mostrar_error_servidor();
+                                
+                                mostrar_notificacion("Analisis agregado.", 1);
+                                c_en_edicion = 0; recargar = 1;
+                            }
+                        } else { c_foco = (c_foco + 1) % 7; }
+                    }
+                    else if (c_e == KEY_BACKSPACE || c_e == 127 || c_e == '\b') {
+                        if (c_foco > 1 && c_foco < 5) { int l = strlen(c_campos[c_foco]); if(l>0) c_campos[c_foco][l-1]='\0'; }
+                    }
+                    else if (c_e >= 32 && c_e <= 126) {
+                        if (c_foco > 1 && c_foco < 5) { int l = strlen(c_campos[c_foco]); if(l<90) { c_campos[c_foco][l]=c_e; c_campos[c_foco][l+1]='\0'; } }
+                    }
+                }
+            }
+            else {
+                int foco_edit = 0, en_edicion = 1;
+                char campos[5][100]; 
+                strcpy(campos[0], categorias[foco_lista]); strcpy(campos[1], subcats[foco_lista]);
+                strcpy(campos[2], nombres[foco_lista]); strcpy(campos[3], precios[foco_lista]);
+                strcpy(campos[4], componentes[foco_lista]);
+                const char *titulos[] = {"Categoria:", "Tipo (Sub):", "Nombre:", "Precio:", "Componentes:"};
+
+                while(en_edicion) {
+                    clear();
+                    int e_alto = 24, e_ancho = 100;
+                    int ey = (LINES - e_alto) / 2, ex = (COLS - e_ancho) / 2;
+                    dibujar_tarjeta(ey, ex, e_alto, e_ancho);
+
+                    attron(COLOR_PAIR(3) | A_BOLD); mvprintw(ey + 1, ex + 38, "=== EDITAR ANALISIS ==="); attroff(COLOR_PAIR(3) | A_BOLD);
+
+                    for (int i = 0; i < 5; i++) {
+                        attron(COLOR_PAIR(1)); mvprintw(ey + 4 + (i * 2), ex + 4, "%-13s", titulos[i]);
+                        if (foco_edit == i) attron(COLOR_PAIR(2)); else attron(COLOR_PAIR(4)); 
+                        
+                        mvprintw(ey + 4 + (i * 2), ex + 18, "                                                                             "); 
+                        mvprintw(ey + 4 + (i * 2), ex + 19, "%.75s", campos[i]);
+                        if (foco_edit == i && strlen(campos[i]) < 75) { attron(A_BLINK); mvprintw(ey + 4 + (i * 2), ex + 19 + strlen(campos[i]), "_"); attroff(A_BLINK); }
+                        attroff(COLOR_PAIR(2) | COLOR_PAIR(4));
+                    }
+
+                    if (foco_edit == 5) attron(COLOR_PAIR(2) | A_BOLD); else attron(COLOR_PAIR(1));
+                    mvprintw(ey + 15, ex + 30, " [ Guardar Cambios ] "); attroff(COLOR_PAIR(2) | COLOR_PAIR(1) | A_BOLD);
+
+                    if (foco_edit == 6) attron(COLOR_PAIR(5) | A_BOLD); else attron(COLOR_PAIR(1)); 
+                    mvprintw(ey + 17, ex + 43, " [ Eliminar ] "); attroff(COLOR_PAIR(5) | COLOR_PAIR(1) | A_BOLD);
+
+                    if (foco_edit == 7) attron(COLOR_PAIR(2) | A_BOLD); else attron(COLOR_PAIR(1));
+                    mvprintw(ey + 19, ex + 43, " [ Regresar ] "); attroff(COLOR_PAIR(2) | COLOR_PAIR(1) | A_BOLD);
                     refresh();
 
-                    int c3 = getch();
-                    if(c3 == KEY_UP) foco_form = (foco_form - 1 + num_campos + 2) % (num_campos + 2);
-                    else if (c3 == KEY_DOWN) foco_form = (foco_form + 1) % (num_campos + 2);
-                    else if (c3 == KEY_LEFT || c3 == KEY_RIGHT) {
-                        if (es_sino && foco_form == 0) val_sino = !val_sino; 
-                    }
-                    else if (c3 == '\n' || c3 == '\r') {
-                        if (es_sino && foco_form == 0) {
-                            val_sino = !val_sino; 
-                        }
-                        else if(foco_form == num_campos+1) { editando = 0; } 
-                        else if(foco_form == num_campos) { 
-                            if (es_sino) strcpy(campos_res[0], val_sino == 0 ? "NEGATIVO" : "POSITIVO");
+                    int c_e = getch();
+                    if (c_e == KEY_UP) foco_edit = (foco_edit - 1 + 8) % 8;
+                    else if (c_e == KEY_DOWN) foco_edit = (foco_edit + 1) % 8;
+                    else if (c_e == '\n' || c_e == '\r') {
+                        if (foco_edit == 7) { en_edicion = 0; }
+                        else if (foco_edit == 6) { 
+                            // --- PROTECCION DE CONEXION ---
+                            if (down(semid, MUTEX) == -1) mostrar_error_servidor();
+                            snprintf(memoria->mensaje, 512, "ADMIN_CAT_DEL|%s", nombres[foco_lista]);
+                            if (up(semid, CLIENTE_LISTO) == -1) mostrar_error_servidor(); 
+                            if (down(semid, SERVIDOR_LISTO) == -1) mostrar_error_servidor(); 
+                            if (up(semid, MUTEX) == -1) mostrar_error_servidor();
                             
-                            char meta_data[200] = "";
-                            for(int i=0; i<num_campos; i++) {
-                                char temp_dt[50]; snprintf(temp_dt, 50, "%s:%s|", titulos[i], campos_res[i]);
-                                strcat(meta_data, temp_dt);
-                            }
-
-                            if(down(semid, MUTEX) != -1) {
-                                snprintf(memoria->mensaje, 512, "ADMIN_RES_SAVE|%s|%s|%s", usuarios[foco_lista], productos[foco_lista], meta_data);
-                                up(semid, CLIENTE_LISTO); down(semid, SERVIDOR_LISTO); up(semid, MUTEX);
-                                mostrar_notificacion("Resultados adjuntados exitosamente.", 1);
-                            }
-
-                            if(!es_sino) {
-                                mostrar_grafica_admin(productos[foco_lista], titulos, campos_res, num_campos);
-                            }
-
-                            editando = 0; recargar = 1; foco_lista = 0;
-                        } else { foco_form = (foco_form + 1) % (num_campos + 2); }
-                    }
-                    else if (c3 == KEY_BACKSPACE || c3 == 127 || c3 == '\b') {
-                        if(!es_sino && foco_form < num_campos) { int l=strlen(campos_res[foco_form]); if(l>0) campos_res[foco_form][l-1]='\0'; }
-                    }
-                    else if (c3 >= 32 && c3 <= 126) {
-                        if(!es_sino && foco_form < num_campos) { 
-                            int l=strlen(campos_res[foco_form]); 
-                            if(l<12) {
-                                if(isdigit(c3)) { campos_res[foco_form][l]=c3; campos_res[foco_form][l+1]='\0'; }
-                            } 
+                            mostrar_notificacion("Analisis eliminado.", 1);
+                            en_edicion = 0; recargar = 1; foco_lista = 0;
                         }
+                        else if (foco_edit == 5) { 
+                            // --- PROTECCION DE CONEXION ---
+                            if (down(semid, MUTEX) == -1) mostrar_error_servidor();
+                            snprintf(memoria->mensaje, 512, "ADMIN_CAT_UPD|%.45s|%.45s|%.45s|%.45s|%.45s|%.100s", 
+                                     nombres[foco_lista], campos[0], campos[1], campos[2], campos[3], campos[4]);
+                            if (up(semid, CLIENTE_LISTO) == -1) mostrar_error_servidor(); 
+                            if (down(semid, SERVIDOR_LISTO) == -1) mostrar_error_servidor(); 
+                            if (up(semid, MUTEX) == -1) mostrar_error_servidor();
+                            
+                            mostrar_notificacion("Cambios guardados.", 1);
+                            en_edicion = 0; recargar = 1;
+                        } else { foco_edit = (foco_edit + 1) % 8; }
+                    }
+                    else if (c_e == KEY_BACKSPACE || c_e == 127 || c_e == '\b') {
+                        if (foco_edit < 5) { int l = strlen(campos[foco_edit]); if(l>0) campos[foco_edit][l-1]='\0'; }
+                    }
+                    else if (c_e >= 32 && c_e <= 126) {
+                        if (foco_edit < 5) { int l = strlen(campos[foco_edit]); if(l<90) { campos[foco_edit][l]=c_e; campos[foco_edit][l+1]='\0'; } }
                     }
                 }
             }
@@ -499,10 +395,9 @@ void agregar_resultados(int semid, MemoriaCompartida *memoria) {
 // --- MENU PRINCIPAL DEL ADMIN ---
 void abrir_panel_admin(int semid, MemoriaCompartida *memoria) {
     int opcion = 0, ejecutando = 1;
-    const char *opciones[5] = {
+    const char *opciones[4] = {
         "   Gestionar Usuarios               ", 
         "   Editar/Eliminar Analisis         ", 
-        "   Agregar Resultado a Paciente     ",
         "   Ver Total de Ventas              ",
         "   Salir del Panel                  "
     };
@@ -516,7 +411,7 @@ void abrir_panel_admin(int semid, MemoriaCompartida *memoria) {
         attron(COLOR_PAIR(3) | A_BOLD); mvprintw(sy + 2, sx + 13, "=== PANEL ADMINISTRADOR ==="); attroff(COLOR_PAIR(3) | A_BOLD);
         mvhline(sy + 5, sx + 2, ACS_HLINE, ancho - 4);
 
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 4; i++) {
             if (i == opcion) { attron(COLOR_PAIR(2) | A_BOLD); mvprintw(sy + 7 + (i * 2), sx + 8, "%s", opciones[i]); attroff(COLOR_PAIR(2) | A_BOLD); } 
             else { attron(COLOR_PAIR(1)); mvprintw(sy + 7 + (i * 2), sx + 8, "%s", opciones[i]); attroff(COLOR_PAIR(1)); }
         }
@@ -524,22 +419,24 @@ void abrir_panel_admin(int semid, MemoriaCompartida *memoria) {
 
         int ch = getch();
         switch(ch) {
-            case KEY_UP: opcion = (opcion - 1 + 5) % 5; break;
-            case KEY_DOWN: opcion = (opcion + 1) % 5; break;
+            case KEY_UP: opcion = (opcion - 1 + 4) % 4; break;
+            case KEY_DOWN: opcion = (opcion + 1) % 4; break;
             case '\n': case '\r':
                 if (opcion == 0) { gestionar_usuarios(semid, memoria); } 
                 else if (opcion == 1) { gestionar_analisis(semid, memoria); } 
-                else if (opcion == 2) { agregar_resultados(semid, memoria); } 
-                else if (opcion == 3) {
-                    if (down(semid, MUTEX) != -1) {
-                        strncpy(memoria->mensaje, "ADMIN_VENTAS_REQ", 512);
-                        if (up(semid, CLIENTE_LISTO) != -1 && down(semid, SERVIDOR_LISTO) != -1) {
-                            char respuesta[512]; strncpy(respuesta, memoria->mensaje, 512);
-                            up(semid, MUTEX); mostrar_notificacion(respuesta, 1);
-                        }
-                    }
+                else if (opcion == 2) {
+                    // --- PROTECCION DE CONEXION ---
+                    if (down(semid, MUTEX) == -1) mostrar_error_servidor();
+                    strncpy(memoria->mensaje, "ADMIN_VENTAS_REQ", 512);
+                    if (up(semid, CLIENTE_LISTO) == -1) mostrar_error_servidor(); 
+                    if (down(semid, SERVIDOR_LISTO) == -1) mostrar_error_servidor(); 
+                    
+                    char respuesta[512]; strncpy(respuesta, memoria->mensaje, 512);
+                    if (up(semid, MUTEX) == -1) mostrar_error_servidor();
+                    
+                    mostrar_notificacion(respuesta, 1);
                 } 
-                else if (opcion == 4) { ejecutando = 0; }
+                else if (opcion == 3) { ejecutando = 0; }
                 break;
         }
     }

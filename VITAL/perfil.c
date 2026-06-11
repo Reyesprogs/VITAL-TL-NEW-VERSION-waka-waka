@@ -44,14 +44,14 @@ void abrir_perfil(const char *usuario_actual, int semid, MemoriaCompartida *memo
     char cor_actual[50] = "---";
 
     // --- 1. PEDIR DATOS ACTUALES AL SERVIDOR ---
-    if (down(semid, MUTEX) == -1) mostrar_error_servidor(); 
+    if (down(semid, MUTEX) == -1) { mostrar_error_servidor(); return; }
     snprintf(memoria->mensaje, 512, "PERFIL_REQ | Usr: %s", usuario_actual);
-    if (up(semid, CLIENTE_LISTO) == -1) mostrar_error_servidor();
-    if (down(semid, SERVIDOR_LISTO) == -1) mostrar_error_servidor(); 
+    if (up(semid, CLIENTE_LISTO) == -1) { mostrar_error_servidor(); return; }
+    if (down(semid, SERVIDOR_LISTO) == -1) { mostrar_error_servidor(); return; }
     
     char respuesta[512];
     strncpy(respuesta, memoria->mensaje, 512);
-    if (up(semid, MUTEX) == -1) mostrar_error_servidor();
+    if (up(semid, MUTEX) == -1) { mostrar_error_servidor(); return; }
 
     if (strcmp(respuesta, "VACIO") != 0) {
         char *p_pat = strstr(respuesta, "Paterno: ");
@@ -172,18 +172,17 @@ void abrir_perfil(const char *usuario_actual, int semid, MemoriaCompartida *memo
                 if (!validar_correo(campos[4])) strcpy(errores[n_err++], "Correo: Requiere '@' y '.'");
 
                 if (n_err > 0) {
-                    // Si algo falla, mostramos la tarjeta gris de correcciones
                     mostrar_errores_perfil(errores, n_err);
                 } else {
-                    // Si todo está perfecto, mandamos al servidor
-                    if (down(semid, MUTEX) == -1) mostrar_error_servidor(); 
+                    // --- ENVIAR DATOS AL SERVIDOR PROTEGIDO ---
+                    if (down(semid, MUTEX) == -1) { mostrar_error_servidor(); return; }
                     
                     snprintf(memoria->mensaje, 512, "PERFIL_UPDATE | Usr: %s | Paterno: %s| Materno: %s| Nombre: %s| Sangre: %s| Correo: %s", 
                              usuario_actual, campos[0], campos[1], campos[2], campos[3], campos[4]);
                     
-                    if (up(semid, CLIENTE_LISTO) == -1) mostrar_error_servidor();
-                    if (down(semid, SERVIDOR_LISTO) == -1) mostrar_error_servidor(); 
-                    if (up(semid, MUTEX) == -1) mostrar_error_servidor(); 
+                    if (up(semid, CLIENTE_LISTO) == -1) { mostrar_error_servidor(); return; }
+                    if (down(semid, SERVIDOR_LISTO) == -1) { mostrar_error_servidor(); return; }
+                    if (up(semid, MUTEX) == -1) { mostrar_error_servidor(); return; }
 
                     mostrar_notificacion("Perfil actualizado exitosamente.", 1);
                     return; 

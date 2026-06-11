@@ -163,11 +163,13 @@ void *atender_cliente(void *arg) {
         up(semid, SERVIDOR_LISTO); sleep(1); pthread_exit(NULL);
     }
 
-    // --- ADMIN: ELIMINAR ANALISIS ---
+// --- ADMIN: ELIMINAR ANALISIS ---
     if (strncmp(variable_interna, "ADMIN_CAT_DEL|", 14) == 0) {
         char prod[50];
         sscanf(variable_interna, "ADMIN_CAT_DEL|%[^\n]", prod);
-        char busq[100]; snprintf(busq, 100, "%s|", prod);
+        
+        // Ahora el nombre está en medio, lo buscamos rodeado de '|'
+        char busq[100]; snprintf(busq, 100, "|%s|", prod);
         
         pthread_mutex_lock(&mutex_archivo);
         FILE *arch = fopen("analisis.txt", "r");
@@ -175,7 +177,11 @@ void *atender_cliente(void *arg) {
         if (arch && tmp) {
             char lin[200];
             while (fgets(lin, sizeof(lin), arch)) {
-                if (strncmp(lin, busq, strlen(busq)) != 0) fprintf(tmp, "%s", lin);
+                if (strstr(lin, busq) == NULL) {
+                    fprintf(tmp, "%s", lin);
+                } else {
+                    printf("\n[Monitor Admin] Analisis ELIMINADO de la base de datos:\n  -> %s", lin);
+                }
             }
             fclose(arch); fclose(tmp);
             remove("analisis.txt"); rename("temp_cat.txt", "analisis.txt");
@@ -187,9 +193,12 @@ void *atender_cliente(void *arg) {
 
     // --- ADMIN: ACTUALIZAR ANALISIS ---
     if (strncmp(variable_interna, "ADMIN_CAT_UPD|", 14) == 0) {
-        char old_p[50], new_p[50], new_prc[20];
-        sscanf(variable_interna, "ADMIN_CAT_UPD|%[^|]|%[^|]|%[^\n]", old_p, new_p, new_prc);
-        char busq[100]; snprintf(busq, 100, "%s|", old_p);
+        char old_p[50], cat[50], sub[50], new_p[50], new_prc[20], comp[150];
+        // Extraemos los 6 datos (El nombre viejo y los 5 campos nuevos)
+        sscanf(variable_interna, "ADMIN_CAT_UPD|%[^|]|%[^|]|%[^|]|%[^|]|%[^|]|%[^\n]", 
+               old_p, cat, sub, new_p, new_prc, comp);
+               
+        char busq[100]; snprintf(busq, 100, "|%s|", old_p);
         
         pthread_mutex_lock(&mutex_archivo);
         FILE *arch = fopen("analisis.txt", "r"); 
@@ -197,8 +206,9 @@ void *atender_cliente(void *arg) {
         if (arch && tmp) {
             char lin[200];
             while (fgets(lin, sizeof(lin), arch) != NULL) {
-                if (strncmp(lin, busq, strlen(busq)) == 0) {
-                    fprintf(tmp, "%s|%s\n", new_p, new_prc);
+                if (strstr(lin, busq) != NULL) {
+                    fprintf(tmp, "%s|%s|%s|%s|%s\n", cat, sub, new_p, new_prc, comp);
+                    printf("\n[Monitor Admin] Analisis ACTUALIZADO:\n  -> Nuevo Registro: %s|%s|%s|$%s|%s\n", cat, sub, new_p, new_prc, comp);
                 } else {
                     fprintf(tmp, "%s", lin);
                 }
@@ -211,27 +221,25 @@ void *atender_cliente(void *arg) {
         up(semid, SERVIDOR_LISTO); sleep(1); pthread_exit(NULL);
     }
 
-    // --- ADMIN: BUSCAR ANALISIS PENDIENTES ---
-    if (strcmp(variable_interna, "ADMIN_PEND_REQ") == 0) {
-        char buffer[512] = "";
+// --- ADMIN: AGREGAR NUEVO ANALISIS ---
+// --- ADMIN: AGREGAR NUEVO ANALISIS ---
+    if (strncmp(variable_interna, "ADMIN_CAT_ADD|", 14) == 0) {
         pthread_mutex_lock(&mutex_archivo);
-        FILE *arch = fopen("resultados.txt", "r");
+        FILE *arch = fopen("analisis.txt", "a"); 
         if (arch) {
-            char lin[200];
-            while(fgets(lin, sizeof(lin), arch)) {
-                if (strstr(lin, "Estado: PENDIENTE")) {
-                    char u[50], p[50];
-                    sscanf(strstr(lin, "Usr: ")+5, "%[^ |]", u);
-                    sscanf(strstr(lin, "Prod: ")+6, "%[^ |]", p);
-                    char tmp[150]; snprintf(tmp, 150, "%s|%s,", u, p);
-                    if (strlen(buffer) + strlen(tmp) < 500) strcat(buffer, tmp);
-                }
-            }
+            // Guardamos directamente saltando el prefijo de 14 letras
+            fprintf(arch, "%s\n", variable_interna + 14);
             fclose(arch);
         }
         pthread_mutex_unlock(&mutex_archivo);
-        if(strlen(buffer)==0) strcpy(buffer, "VACIO");
-        strncpy(memoria->mensaje, buffer, 512);
+        
+        // --- NUEVO: MONITOR DE CREACION ---
+        char c_cat[50], c_sub[50], c_nom[50], c_prc[20], c_comp[150];
+        // Extraemos las 5 partes para mostrarlas en la consola
+        sscanf(variable_interna + 14, "%[^|]|%[^|]|%[^|]|%[^|]|%[^\n]", c_cat, c_sub, c_nom, c_prc, c_comp);
+        printf("\n[Catalogo Monitor] NUEVO ANALISIS CREADO:\n  -> Categoria: %s [%s]\n  -> Analisis: %s | Costo: $%s\n", c_cat, c_sub, c_nom, c_prc);
+        
+        strncpy(memoria->mensaje, "CATALOGO_ACTUALIZADO", 512);
         up(semid, SERVIDOR_LISTO); sleep(1); pthread_exit(NULL);
     }
 
@@ -264,15 +272,17 @@ void *atender_cliente(void *arg) {
     }
 
     // --- CATALOGO ---
+// --- CATALOGO ---
     if (strcmp(variable_interna, "CATALOGO_REQ") == 0) {
         char buffer_catalogo[512] = "";
         pthread_mutex_lock(&mutex_archivo);
         FILE *archivo = fopen("analisis.txt", "r");
         if (archivo != NULL) {
-            char linea_arch[100];
+            char linea_arch[150]; // Aumentamos tamaño por si los componentes son largos
             while (fgets(linea_arch, sizeof(linea_arch), archivo) != NULL) {
                 linea_arch[strcspn(linea_arch, "\n")] = 0; 
-                strcat(buffer_catalogo, linea_arch); strcat(buffer_catalogo, ","); 
+                strcat(buffer_catalogo, linea_arch); 
+                strcat(buffer_catalogo, ";"); // <-- CAMBIO CLAVE AQUI
             }
             fclose(archivo);
         }
@@ -282,11 +292,18 @@ void *atender_cliente(void *arg) {
     }
 
     // --- CARRITO (ADD, REQ, DEL, PAY) ---
+    // --- CARRITO (ADD, REQ, DEL, PAY) ---
     if (strncmp(variable_interna, "CARRITO_ADD", 11) == 0) {
         pthread_mutex_lock(&mutex_archivo);
         FILE *archivo = fopen("carritos.txt", "a");
         if (archivo != NULL) { fprintf(archivo, "%s\n", variable_interna); fclose(archivo); }
         pthread_mutex_unlock(&mutex_archivo);
+        
+        // --- NUEVO: MONITOR DE AGREGAR ---
+        char usr_add[50], prod_add[50], prc_add[20];
+        sscanf(variable_interna, "CARRITO_ADD | Usr: %[^ |] | Prod: %[^ |] | Prc: %s", usr_add, prod_add, prc_add);
+        printf("\n[Carrito Monitor] ITEM AGREGADO:\n  -> Usr: %s | Analisis: %s | Costo: $%s\n", usr_add, prod_add, prc_add);
+
         strncpy(memoria->mensaje, "AGREGADO_EXITO", 512);
         up(semid, SERVIDOR_LISTO); sleep(1); pthread_exit(NULL);
     }
@@ -329,6 +346,10 @@ void *atender_cliente(void *arg) {
             fclose(arch); fclose(tmp); remove("carritos.txt"); rename("temp.txt", "carritos.txt");
         }
         pthread_mutex_unlock(&mutex_archivo);
+        
+        // --- NUEVO: MONITOR DE ELIMINAR ---
+        printf("\n[Carrito Monitor] ITEM ELIMINADO:\n  -> Usr: %s quito '%s' de su carrito.\n", u, p);
+
         strncpy(memoria->mensaje, "BORRADO_EXITO", 512);
         up(semid, SERVIDOR_LISTO); sleep(1); pthread_exit(NULL);
     }
@@ -336,6 +357,9 @@ void *atender_cliente(void *arg) {
     if (strncmp(variable_interna, "CARRITO_PAY", 11) == 0) {
         char u[50]; sscanf(variable_interna, "CARRITO_PAY | Usr: %s", u);
         char busq[200]; snprintf(busq, 200, "Usr: %s | Prod: ", u);
+        
+        int cantidad_pagada = 0; // Para el monitor
+
         pthread_mutex_lock(&mutex_archivo);
         FILE *arch = fopen("carritos.txt", "r"); FILE *tmp = fopen("temp.txt", "w"); FILE *res = fopen("resultados.txt", "a");
         if (arch && tmp && res) {
@@ -344,15 +368,19 @@ void *atender_cliente(void *arg) {
                 if (strstr(lin, busq)) {
                     char prod[50]; sscanf(strstr(lin, "Prod: ")+6, "%[^ |]", prod);
                     fprintf(res, "RESULTADO | Usr: %s | Prod: %s | Estado: PENDIENTE\n", u, prod);
+                    cantidad_pagada++;
                 } else fprintf(tmp, "%s", lin);
             }
             fclose(arch); fclose(tmp); fclose(res); remove("carritos.txt"); rename("temp.txt", "carritos.txt");
         }
         pthread_mutex_unlock(&mutex_archivo);
+
+        // --- NUEVO: MONITOR DE PAGO (TRANSACCION) ---
+        printf("\n[Transaccion Monitor] PAGO EXITOSO ($):\n  -> El paciente '%s' liquido %d analisis.\n  -> (Enviados a bandeja de PENDIENTES del Admin)\n", u, cantidad_pagada);
+
         strncpy(memoria->mensaje, "PAGO_EXITO", 512);
         up(semid, SERVIDOR_LISTO); sleep(1); pthread_exit(NULL);
     }
-
     // --- RESULTADOS_REQ / HISTORIAL_REQ ---
     if (strncmp(variable_interna, "RESULTADOS_REQ", 14) == 0) {
         char u[50]; sscanf(variable_interna, "RESULTADOS_REQ | Usr: %s", u);

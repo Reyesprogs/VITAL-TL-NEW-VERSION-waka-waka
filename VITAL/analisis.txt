@@ -1,4 +1,6 @@
-Biometria_Hematica|300
-Quimica_Sanguinea_6|400
-Prueba_Sifilis_VDRL|150
-Examen_General_Orina|100
+Sangre|Simple|Biometria_Hematica|300|Ninguno
+Sangre|Paquete|Quimica_Sanguinea_6|400|Glucosa,Urea,Creatinina,Acido_Urico,Colesterol,Trigliceridos
+Orina|Simple|Examen_General_Orina|100|Ninguno
+Orina|Paquete|Perfil_Renal|550|Albumina,Creatinina,Urea,BUN
+Pruebas_Rapidas|Simple|Prueba_Sifilis_VDRL|150|Ninguno
+Pruebas_Rapidas|Simple|COVID_19|500|Ninguno
