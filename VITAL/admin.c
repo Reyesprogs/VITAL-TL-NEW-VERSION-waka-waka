@@ -659,22 +659,63 @@ void menu_registrar_resultados(int semid, MemoriaCompartida *memoria) {
     }
 }
 
+// --- MODULO: REPORTE DE VENTAS ---
+void mostrar_panel_ventas(int semid, MemoriaCompartida *memoria) {
+    if (down(semid, MUTEX) == -1) mostrar_error_servidor();
+    strncpy(memoria->mensaje, "ADMIN_VENTAS_REQ", 512);
+    if (up(semid, CLIENTE_LISTO) == -1) mostrar_error_servidor(); 
+    if (down(semid, SERVIDOR_LISTO) == -1) mostrar_error_servidor(); 
+    char respuesta[512]; strncpy(respuesta, memoria->mensaje, 512);
+    if (up(semid, MUTEX) == -1) mostrar_error_servidor();
+    
+    float v_dia = 0, v_sem = 0, v_mes = 0, v_tot = 0;
+    sscanf(respuesta, "DIA:%f|SEM:%f|MES:%f|TOT:%f", &v_dia, &v_sem, &v_mes, &v_tot);
+    
+    int viendo = 1;
+    while(viendo) {
+        clear();
+        int alto = 18, ancho = 60;
+        int sy = (LINES - alto) / 2, sx = (COLS - ancho) / 2;
+        if (sx < 0) sx = 0;
+        dibujar_tarjeta(sy, sx, alto, ancho);
+        
+        attron(COLOR_PAIR(3) | A_BOLD); mvprintw(sy + 2, sx + 18, "=== REPORTE DE VENTAS ==="); attroff(COLOR_PAIR(3) | A_BOLD);
+        
+        attron(COLOR_PAIR(1));
+        mvprintw(sy + 4, sx + 4, "Desglose financiero de la clinica:");
+        mvhline(sy + 5, sx + 2, ACS_HLINE, ancho - 4);
+        
+        mvprintw(sy + 7, sx + 6, "Ventas de HOY (Diarias)     : $ %.2f MXN", v_dia);
+        mvprintw(sy + 9, sx + 6, "Ventas de esta SEMANA       : $ %.2f MXN", v_sem);
+        mvprintw(sy + 11, sx + 6, "Ventas de este MES          : $ %.2f MXN", v_mes);
+        mvhline(sy + 13, sx + 2, ACS_HLINE, ancho - 4);
+        
+        attron(A_BOLD); mvprintw(sy + 14, sx + 6, "INGRESOS TOTALES HISTORICOS : $ %.2f MXN", v_tot); attroff(A_BOLD);
+        attroff(COLOR_PAIR(1));
+        
+        attron(COLOR_PAIR(2) | A_BOLD); mvprintw(sy + alto - 2, sx + 25, " [ Volver ] "); attroff(COLOR_PAIR(2) | A_BOLD);
+        
+        refresh();
+        int ch = getch();
+        if (ch == '\n' || ch == '\r') viendo = 0;
+    }
+}
+
 
 // --- MENU PRINCIPAL DEL ADMIN ACTUALIZADO ---
 void abrir_panel_admin(int semid, MemoriaCompartida *memoria) {
     int opcion = 0, ejecutando = 1;
-    // Agregamos la nueva opcion
     const char *opciones[5] = {
         "   Gestionar Usuarios               ", 
         "   Editar/Eliminar Analisis         ", 
-        "   Registrar Resultados Medicos     ", // <--- NUEVA
+        "   Registrar Resultados Medicos     ", 
         "   Ver Total de Ventas              ",
         "   Salir del Panel                  "
     };
 
     while(ejecutando) {
         clear();
-        int alto = 22, ancho = 55; // Alto ajustado
+        int alto = 22, ancho = 55; 
         int sy = (LINES - alto) / 2, sx = (COLS - ancho) / 2;
         if (sx < 0) sx = 0;
         dibujar_tarjeta(sy, sx, alto, ancho);
@@ -695,18 +736,13 @@ void abrir_panel_admin(int semid, MemoriaCompartida *memoria) {
             case '\n': case '\r':
                 if (opcion == 0) { gestionar_usuarios(semid, memoria); } 
                 else if (opcion == 1) { gestionar_analisis(semid, memoria); } 
-                else if (opcion == 2) { menu_registrar_resultados(semid, memoria); } // <--- LLAMA A LA FUNCION
-                else if (opcion == 3) {
-                    if (down(semid, MUTEX) == -1) mostrar_error_servidor();
-                    strncpy(memoria->mensaje, "ADMIN_VENTAS_REQ", 512);
-                    if (up(semid, CLIENTE_LISTO) == -1) mostrar_error_servidor(); 
-                    if (down(semid, SERVIDOR_LISTO) == -1) mostrar_error_servidor(); 
-                    char respuesta[512]; strncpy(respuesta, memoria->mensaje, 512);
-                    if (up(semid, MUTEX) == -1) mostrar_error_servidor();
-                    mostrar_notificacion(respuesta, 1);
-                } 
+                else if (opcion == 2) { menu_registrar_resultados(semid, memoria); } 
+                else if (opcion == 3) { mostrar_panel_ventas(semid, memoria); } // <-- AHORA LLAMA A LA NUEVA FUNCIÓN
                 else if (opcion == 4) { ejecutando = 0; }
                 break;
         }
     }
 }
+
+
+

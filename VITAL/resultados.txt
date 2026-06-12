@@ -5,3 +5,6 @@ RESULTADO | Usr: don_chuy | Prod: Biometria_Hematica | Estado: COMPLETADO | Fech
 RESULTADO | Usr: don_chuy | Prod: Biometria_Hematica | Estado: COMPLETADO | Fecha: 11/06/2026 | Data: Biometria_Hematica:2.2
 RESULTADO | Usr: don_chuy | Prod: Biometria_Hematica | Estado: COMPLETADO | Fecha: 11/06/2026 | Data: Biometria_Hematica:2.3
 RESULTADO | Usr: don_chuy | Prod: Examen_General_Orina | Estado: COMPLETADO | Fecha: 11/06/2026 | Data: Examen_General_Orina:1.3
+RESULTADO | Usr: guawaba | Prod: Biometria_Hematica | Estado: COMPLETADO | Prc: 300 | Fecha: 12/06/2026 | Data: Biometria_Hematica:1
+RESULTADO | Usr: guawaba | Prod: COVID_19 | Estado: COMPLETADO | Prc: 100 | Fecha: 12/06/2026 | Data: POSITIVO
+RESULTADO | Usr: guawaba | Prod: Perfil_Renal | Estado: COMPLETADO | Prc: 550 | Fecha: 12/06/2026 | Data: Albumina:12,Creatinina:45,Urea:78

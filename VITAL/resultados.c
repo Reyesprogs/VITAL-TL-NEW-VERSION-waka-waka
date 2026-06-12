@@ -50,12 +50,9 @@ void mostrar_ultimos_resultados(char *usuario, int semid, MemoriaCompartida *mem
 
             for (int i = 0; i < total_lineas; i++) {
                 char p_name[50] = {0}, f_str[20] = {0};
-                char *ptr_p = strstr(lineas[i], "Prod: ");
-                char *ptr_f = strstr(lineas[i], "Fecha: ");
-                
-                // CORRECCIÓN: Evitamos la fragmentación por espacios usando %[^|]
-                if (ptr_p) { sscanf(ptr_p + 6, "%[^|]", p_name); limpiar_espacios_extremos(p_name); }
-                if (ptr_f) { sscanf(ptr_f + 7, "%[^|]", f_str); limpiar_espacios_extremos(f_str); }
+                sscanf(lineas[i], "%[^|]|%[^|]", p_name, f_str);
+                limpiar_espacios_extremos(p_name);
+                limpiar_espacios_extremos(f_str);
 
                 if (foco == i) attron(COLOR_PAIR(2) | A_BOLD); else attron(COLOR_PAIR(1));
                 mvprintw(sy + 6 + i, sx + 4, "%s Fecha: %s | %-35s", (foco == i) ? " >" : "  ", f_str, p_name);
@@ -80,11 +77,10 @@ void mostrar_ultimos_resultados(char *usuario, int semid, MemoriaCompartida *mem
                     int py = (LINES - pop_alto) / 2, px = (COLS - pop_ancho) / 2;
                     dibujar_tarjeta(py, px, pop_alto, pop_ancho);
 
-                    char p_name[50] = {0}, data_str[256] = {0};
-                    char *ptr_p = strstr(lineas[foco], "Prod: ");
-                    char *ptr_d = strstr(lineas[foco], "Data: ");
-                    if (ptr_p) { sscanf(ptr_p + 6, "%[^|]", p_name); limpiar_espacios_extremos(p_name); }
-                    if (ptr_d) sscanf(ptr_d + 6, "%[^\n]", data_str);
+                    char p_name[50] = {0}, f_str[20] = {0}, data_str[256] = {0};
+                    sscanf(lineas[foco], "%[^|]|%[^|]|%[^\n]", p_name, f_str, data_str);
+                    limpiar_espacios_extremos(p_name);
+                    limpiar_espacios_extremos(data_str);
 
                     attron(COLOR_PAIR(3) | A_BOLD); mvprintw(py + 2, px + 18, "=== DETALLE DE DIAGNOSTICO ==="); attroff(COLOR_PAIR(3) | A_BOLD);
                     attron(COLOR_PAIR(1)); mvprintw(py + 4, px + 4, "Analisis: %s", p_name); mvhline(py + 5, px + 2, ACS_HLINE, pop_ancho - 4);
@@ -136,12 +132,10 @@ void mostrar_historial_medico(char *usuario, int semid, MemoriaCompartida *memor
 
     char anal_unicos[30][50] = {0}; int total_unicos = 0;
     for (int i = 0; i < total_lineas; i++) {
-        char data_str[256] = {0}, p_name[50] = {0};
-        char *ptr_d = strstr(lineas[i], "Data: ");
-        char *ptr_p = strstr(lineas[i], "Prod: ");
-        if (ptr_d) sscanf(ptr_d + 6, "%[^\n]", data_str);
-        // CORRECCIÓN: Cambiado de %[^ |] a %[^|] para levantar el nombre entero con espacios
-        if (ptr_p) { sscanf(ptr_p + 6, "%[^|]", p_name); limpiar_espacios_extremos(p_name); }
+        char p_name[50] = {0}, f_str[20] = {0}, data_str[256] = {0};
+        sscanf(lineas[i], "%[^|]|%[^|]|%[^\n]", p_name, f_str, data_str);
+        limpiar_espacios_extremos(p_name);
+        limpiar_espacios_extremos(data_str);
 
         if (strchr(data_str, ':')) {
             char temp[256]; strcpy(temp, data_str);
@@ -161,7 +155,6 @@ void mostrar_historial_medico(char *usuario, int semid, MemoriaCompartida *memor
                 sub_tok = strtok(NULL, ",");
             }
         } else {
-            limpiar_espacios_extremos(p_name);
             int existe = 0;
             for (int k = 0; k < total_unicos; k++) {
                 if (strcmp(anal_unicos[k], p_name) == 0) { existe = 1; break; }
@@ -206,15 +199,11 @@ void mostrar_historial_medico(char *usuario, int semid, MemoriaCompartida *memor
                 int h_total = 0, es_num = 0; double max_val = 0.0;
 
                 for (int i = 0; i < total_lineas; i++) {
-                    char data_str[256] = {0}, p_name[50] = {0}, f_str[20] = {0};
-                    char *ptr_d = strstr(lineas[i], "Data: ");
-                    char *ptr_p = strstr(lineas[i], "Prod: ");
-                    char *ptr_f = strstr(lineas[i], "Fecha: ");
-                    if (ptr_d) sscanf(ptr_d + 6, "%[^\n]", data_str);
-                    
-                    // CORRECCIÓN: Mismo ajuste de lectura completa de nombre para graficación
-                    if (ptr_p) { sscanf(ptr_p + 6, "%[^|]", p_name); limpiar_espacios_extremos(p_name); }
-                    if (ptr_f) { sscanf(ptr_f + 7, "%[^|]", f_str); limpiar_espacios_extremos(f_str); }
+                    char p_name[50] = {0}, f_str[20] = {0}, data_str[256] = {0};
+                    sscanf(lineas[i], "%[^|]|%[^|]|%[^\n]", p_name, f_str, data_str);
+                    limpiar_espacios_extremos(p_name);
+                    limpiar_espacios_extremos(f_str);
+                    limpiar_espacios_extremos(data_str);
 
                     if (strchr(data_str, ':')) {
                         char temp[256]; strcpy(temp, data_str);
@@ -234,10 +223,8 @@ void mostrar_historial_medico(char *usuario, int semid, MemoriaCompartida *memor
                             sub_tok = strtok(NULL, ",");
                         }
                     } else {
-                        limpiar_espacios_extremos(p_name);
                         if (strcmp(p_name, anal_unicos[foco]) == 0) {
                             strcpy(h_fechas[h_total], f_str);
-                            limpiar_espacios_extremos(data_str);
                             strcpy(h_textos[h_total], data_str);
                             h_total++; es_num = 0;
                         }

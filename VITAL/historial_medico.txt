@@ -8,3 +8,6 @@ PACIENTE: don_chuy | PRUEBA: Biometria_Hematica | Fecha: 11/06/2026 | RESULTADOS
 PACIENTE: don_chuy | PRUEBA: Biometria_Hematica | Fecha: 11/06/2026 | RESULTADOS: Biometria_Hematica:2.2
 PACIENTE: don_chuy | PRUEBA: Biometria_Hematica | Fecha: 11/06/2026 | RESULTADOS: Biometria_Hematica:2.3
 PACIENTE: don_chuy | PRUEBA: Examen_General_Orina | Fecha: 11/06/2026 | RESULTADOS: Examen_General_Orina:1.3
+PACIENTE: guawaba | PRUEBA: Biometria_Hematica | Fecha: 12/06/2026 | RESULTADOS: Biometria_Hematica:1
+PACIENTE: guawaba | PRUEBA: COVID_19 | Fecha: 12/06/2026 | RESULTADOS: POSITIVO
+PACIENTE: guawaba | PRUEBA: Perfil_Renal | Fecha: 12/06/2026 | RESULTADOS: Albumina:12,Creatinina:45,Urea:78
