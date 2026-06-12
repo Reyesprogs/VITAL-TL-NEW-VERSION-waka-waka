@@ -1,0 +1,10 @@
+PACIENTE: don_chuy | PRUEBA: Quimica_Sanguinea_6 | Fecha: 11/06/2026 | RESULTADOS: Glucosa:20,Urea:21,Creatinina:15,Acido_Urico:78,Colesterol:55,Trigliceridos:30
+PACIENTE: don_chuy | PRUEBA: Examen_General_Orina | Fecha: 11/06/2026 | 
+PACIENTE: don_chuy | PRUEBA: COVID_19 | Fecha: 11/06/2026 | RESULTADOS: NEGATIVO
+PACIENTE: don_chuy | PRUEBA: Examen_General_Orina | Fecha: 11/06/2026 | RESULTADOS: Examen_General_Orina:1
+PACIENTE: don_chuy | PRUEBA: Biometria_Hematica | Fecha: 11/06/2026 | RESULTADOS: Biometria_Hematica:2
+PACIENTE: don_chuy | PRUEBA: Examen_General_Orina | Fecha: 11/06/2026 | RESULTADOS: Examen_General_Orina:1.1
+PACIENTE: don_chuy | PRUEBA: Biometria_Hematica | Fecha: 11/06/2026 | RESULTADOS: Biometria_Hematica:2.2
+PACIENTE: don_chuy | PRUEBA: Biometria_Hematica | Fecha: 11/06/2026 | RESULTADOS: Biometria_Hematica:2.2
+PACIENTE: don_chuy | PRUEBA: Biometria_Hematica | Fecha: 11/06/2026 | RESULTADOS: Biometria_Hematica:2.3
+PACIENTE: don_chuy | PRUEBA: Examen_General_Orina | Fecha: 11/06/2026 | RESULTADOS: Examen_General_Orina:1.3

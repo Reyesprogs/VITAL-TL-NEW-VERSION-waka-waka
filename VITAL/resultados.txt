@@ -1,9 +1,7 @@
-RESULTADO | Usr: don_chuy | Prod: Examen_General_Orina | Estado: COMPLETADO | Data: PH
-RESULTADO | Usr: don_chuy | Prod: Biometria_Hematica | Estado: COMPLETADO | Data: Glucosa::1231|Colesterol::12|Trigliseridos::1212|Acido
-RESULTADO | Usr: don_chuy | Prod: Prueba_Sifilis_VDRL | Estado: COMPLETADO | Data: Resultado::Positivo|
-RESULTADO | Usr: don_chuy | Prod: Biometria_Hematica | Estado: PENDIENTE
-RESULTADO | Usr: don_chuy | Prod: Prueba_Sifilis_VDRL | Estado: PENDIENTE
-RESULTADO | Usr: don_chuy | Prod: Perfil_Renal | Estado: PENDIENTE
-RESULTADO | Usr: don_chuy | Prod: Biometria_Hematica | Estado: PENDIENTE
-RESULTADO | Usr: don_chuy | Prod: Quimica_Sanguinea_6 | Estado: PENDIENTE
-RESULTADO | Usr: don_chuy | Prod: Prueba_Sifilis_VDRL | Estado: PENDIENTE
+RESULTADO | Usr: don_chuy | Prod: Quimica_Sanguinea_6 | Estado: COMPLETADO | Fecha: 11/06/2026 | Data: Glucosa:20,Urea:21,Creatinina:15,Acido_Urico:78,Colesterol:55,Trigliceridos:30
+RESULTADO | Usr: don_chuy | Prod: COVID_19 | Estado: COMPLETADO | Fecha: 11/06/2026 | Data: NEGATIVO
+RESULTADO | Usr: don_chuy | Prod: Examen_General_Orina | Estado: COMPLETADO | Fecha: 11/06/2026 | Data: Examen_General_Orina:1.1
+RESULTADO | Usr: don_chuy | Prod: Biometria_Hematica | Estado: COMPLETADO | Fecha: 11/06/2026 | Data: Biometria_Hematica:2.2
+RESULTADO | Usr: don_chuy | Prod: Biometria_Hematica | Estado: COMPLETADO | Fecha: 11/06/2026 | Data: Biometria_Hematica:2.2
+RESULTADO | Usr: don_chuy | Prod: Biometria_Hematica | Estado: COMPLETADO | Fecha: 11/06/2026 | Data: Biometria_Hematica:2.3
+RESULTADO | Usr: don_chuy | Prod: Examen_General_Orina | Estado: COMPLETADO | Fecha: 11/06/2026 | Data: Examen_General_Orina:1.3

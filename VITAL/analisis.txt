@@ -1,6 +1,6 @@
 Sangre|Simple|Biometria_Hematica|300|Ninguno
 Sangre|Paquete|Quimica_Sanguinea_6|400|Glucosa,Urea,Creatinina,Acido_Urico,Colesterol,Trigliceridos
-Orina|Simple|Examen_General_Orina|100|Ninguno
+Orina|Simple|Examen_General_Orina|150|Ninguno
 Orina|Paquete|Perfil_Renal|550|Albumina,Creatinina,Urea,BUN
 Pruebas_Rapidas|Simple|Prueba_Sifilis_VDRL|150|Ninguno
-Pruebas_Rapidas|Simple|COVID_19|500|Ninguno
+Pruebas_Rapidas|Simple|COVID_19|100|Ninguno
