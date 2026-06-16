@@ -1,0 +1,110 @@
+Usuario: lol
+Estudio: Biometria Hematica
+Estudio: Glucosa
+Valor: 95
+------------------------
+Usuario: lol
+Estudio: Biometria Hematica
+Estudio: Glucosa
+Valor: 115
+------------------------
+Usuario: lol
+Estudio: Orina
+Valor: 200
+------------------------
+Usuario: lol
+Estudio: Orina
+Valor: 100
+------------------------
+Usuario: lol
+Estudio: Orina - $500
+Valor: 200
+------------------------
+Usuario: lol
+Estudio: Orina - $500
+Valor: 400
+------------------------
+Usuario: lol
+Estudio: Radiografia - $700
+Valor: 100
+------------------------
+Usuario: lol
+Estudio: Orina - $500
+Valor: 160
+------------------------
+Usuario: lol
+Estudio: Radiografia - $700
+Valor: 123
+------------------------
+Usuario: lol
+Estudio: Orina - $500
+Valor: 124
+------------------------
+Usuario: lol
+Estudio: Radiografia - $700
+Valor: 125
+------------------------
+Usuario: lol
+Estudio: Radiografia - $700
+Valor: 1
+------------------------
+Usuario: lol
+Estudio: Corazon - $1000
+Valor: 1
+------------------------
+Usuario: lol
+Estudio: Radiografia - $700
+Valor: 2
+------------------------
+Usuario: lol
+Estudio: Orina - $500
+Valor: 1
+------------------------
+Usuario: lol
+Estudio: Radiografia - $700
+Valor: 2
+------------------------
+Usuario: lol
+Estudio: Corazon - $1000
+Valor: 3
+------------------------
+Usuario: lol
+Estudio: Orina - $500
+Valor: q
+------------------------
+Usuario: lol
+Estudio: Radiografia - $700
+Valor: 1
+------------------------
+Usuario: luis
+Estudio: Orina - $500
+Valor: 1
+------------------------
+Usuario: luis
+Estudio: Corazon - $1000
+Valor: 2
+------------------------
+Usuario: edwin
+Estudio: Orina - $500
+Valor: 2
+------------------------
+Usuario: edwin
+Estudio: Radiografia - $700
+Valor: 2
+------------------------
+Usuario: edwin
+Estudio: Orina - $500
+Valor: 123
+------------------------
+Usuario: edwin
+Estudio: Radiografia - $700
+Valor: 13
+------------------------
+Usuario: lol
+Estudio: colesterol - 600
+Valor: 2
+------------------------
+Usuario: lol
+Estudio: Radiografia - $700
+Valor: 14
+------------------------

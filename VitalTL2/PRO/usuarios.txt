@@ -1,0 +1,40 @@
+Nombre: Jesus
+Apellido: Reyes
+Edad: 23
+Sangre: O+
+Correo: jacob@gmail.com
+Usuario: lol
+Password: ^]^
+------------------------
+Nombre: Edwin Yarel
+Apellido: Perea Munoz
+Edad: 20
+Sangre: B+
+Correo: edwin@gmail.com
+Usuario: edwin
+Password: edwin7
+------------------------
+Nombre: Luis Angel
+Apellido: Perez
+Edad: 24
+Sangre: A+
+Correo: luis@gmail.com
+Usuario: luis
+Password: luis
+------------------------
+Nombre: Angel
+Apellido: Lopez
+Edad: 30
+Sangre: O-
+Correo: angel@gmail.com
+Usuario: angel
+Password: s\UW^
+------------------------
+Nombre: Osvaldo
+Apellido: Martinez
+Edad: 16
+Sangre: O-
+Correo: osva78@gmail.com
+Usuario: osva
+Password: }ADS
+------------------------
